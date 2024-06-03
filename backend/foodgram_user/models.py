@@ -12,6 +12,7 @@ class FoodgramUser(AbstractUser):
     is_subscribed = models.ManyToManyField(
         'self', symmetrical=False, blank=True, related_name='subscribers'
     )
+    email = models.EmailField(unique=True)
 
     class Meta:
         verbose_name = 'Пользователь'

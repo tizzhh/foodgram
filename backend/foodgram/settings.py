@@ -33,12 +33,14 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
+    'django.contrib.admin',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'djoser',
     'api.apps.ApiConfig',
     'food.apps.FoodConfig',
     'foodgram_user.apps.FoodgramUserConfig',
@@ -85,6 +87,18 @@ DATABASES = {
     }
 }
 
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'PAGE_SIZE': 10,
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+}
+
+SIMPLE_JWT = {
+    "TOKEN_OBTAIN_SERIALIZER": "api.serializers.FoodgramTokenObtainSerializer",
+}
 
 AUTH_USER_MODEL = 'foodgram_user.FoodgramUser'
 
