@@ -21,9 +21,9 @@ class Tag(models.Model):
 
 class Ingredient(models.Model):
     class MeasurementUnits(models.TextChoices):
-        KG = "кг" "KILOGRAM"
-        GR = "г" "GRAM"
-        ML = "мл" "MILLILITER"
+        KG = "кг"
+        GR = "г"
+        ML = "мл"
         COOK_PREFERENCE = "по вкусу" "COOK'S PREFERENCE"
 
     name = models.CharField(max_length=MAX_NAME_LENGTH)
@@ -80,6 +80,17 @@ class ShoppingCart(models.Model):
     def __str__(self) -> str:
         return (
             f'{self.recipe.name} is in shopping cart of {self.author.username}'
+        )
+
+    class Meta:
+        ordering = ('author',)
+        verbose_name = 'Корзина покупок'
+        verbose_name_plural = 'Корзины покупок'
+        constraints = (
+            models.UniqueConstraint(
+                fields=('recipe', 'author'),
+                name='unique-together-recipe-author-in-cart',
+            ),
         )
 
 

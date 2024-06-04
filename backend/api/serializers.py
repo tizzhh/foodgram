@@ -7,7 +7,14 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainSerializer
 from rest_framework_simplejwt.tokens import AccessToken
 
-from food.models import Ingredient, Recipe, RecipeIngredient, Tag, User
+from food.models import (
+    Ingredient,
+    Recipe,
+    RecipeIngredient,
+    ShoppingCart,
+    Tag,
+    User,
+)
 
 
 class UserUpdatePasswordSerializer(serializers.Serializer):
@@ -77,6 +84,33 @@ class FoodgramTokenObtainSerializer(TokenObtainSerializer):
             )
         attrs['USER'] = user
         return attrs
+
+
+class ShoppingCartSerializerResponse(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
+        read_only_fields = ('id', 'name', 'image', 'cooking_time')
+
+
+class ShoppingCartSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        recipe_id = self.context.get('recipe_id')
+        recipe = Recipe.objects.get(id=recipe_id)
+        if ShoppingCart.objects.filter(
+            recipe=recipe, author=self.context.get('user')
+        ).exists():
+            raise serializers.ValidationError('Recipe is already in cart')
+        attrs['recipe'] = recipe
+        return attrs
+
+    def to_representation(self, instance):
+        return ShoppingCartSerializerResponse(instance.recipe).data
+
+    class Meta:
+        model = ShoppingCart
+        fields = ('recipe', 'author')
+        read_only_fields = ('recipe', 'author')
 
 
 class TagSerializer(serializers.ModelSerializer):
