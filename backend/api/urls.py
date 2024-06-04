@@ -17,6 +17,7 @@ api_v1_router.register(
     'ingredients', views.IngredientViewSet, basename='ingredients'
 )
 api_v1_router.register('recipes', views.RecipeViewSet, basename='recipes')
+api_v1_router.register('ingredients', views.RecipeViewSet, basename='recipes')
 
 urlpatterns = [
     path(

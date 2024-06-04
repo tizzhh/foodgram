@@ -150,13 +150,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return Response({'short-link': short_link})
 
 
-class TagViewSet(viewsets.ModelViewSet):
-    queryset = Tag.objects.all()
-    serializer_class = TagSerializer
+class BaseTagIngredientViewSet(viewsets.ModelViewSet):
     http_method_names = ('get',)
 
 
-class IngredientViewSet(viewsets.ModelViewSet):
+class TagViewSet(BaseTagIngredientViewSet):
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
+
+
+class IngredientViewSet(BaseTagIngredientViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
 
