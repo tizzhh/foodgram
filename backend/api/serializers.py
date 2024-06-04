@@ -10,78 +10,6 @@ from rest_framework_simplejwt.tokens import AccessToken
 from food.models import Ingredient, Recipe, RecipeIngredient, Tag, User
 
 
-class FoodgramTokenObtainSerializer(TokenObtainSerializer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        del self.fields['username']
-        self.fields['email'] = serializers.EmailField()
-
-    @classmethod
-    def get_token(cls, user):
-        return AccessToken.for_user(user)
-
-    def validate(self, attrs):
-        password = attrs['password']
-        email = attrs['email']
-        user = get_object_or_404(User, email=email)
-        if not user.check_password(password) or email != user.email:
-            raise serializers.ValidationError(
-                'Incorrect password and/or email'
-            )
-        attrs['USER'] = user
-        return attrs
-
-
-class TagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Tag
-        fields = ('id', 'name', 'slug')
-
-
-class IngredientSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Ingredient
-        fields = ('id', 'name', 'measurement_unit')
-
-
-class RecipeIngredientSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RecipeIngredient
-        fields = ('id', 'name', 'measurement_unit', 'amount')
-
-
-class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = RecipeIngredientSerializer(many=True)
-    tags = serializers.PrimaryKeyRelatedField(
-        queryset=Tag.objects.all(), many=True
-    )
-
-    def create(self, validated_data):
-        ingredients = validated_data.pop('ingredients')
-        tags = validated_data.pop('tags')
-        recipe = Recipe.objects.create(**validated_data)
-        for ingredient in ingredients:
-            cur_ingredient, _ = Ingredient.objects.get_or_create(**ingredient)
-            RecipeIngredient.objects.create(
-                recipe=recipe,
-                amount=ingredient['amount'],
-                ingredient=cur_ingredient,
-            )
-        recipe.tags.set(tags)
-        return recipe
-
-    class Meta:
-        model = Recipe
-        fields = (
-            'ingredients',
-            'tags',
-            'image',
-            'name',
-            'text',
-            'cooking_time',
-        )
-
-
 class UserUpdatePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField()
     current_password = serializers.CharField()
@@ -127,6 +55,130 @@ class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('email', 'username', 'first_name', 'last_name', 'password')
+
+
+class FoodgramTokenObtainSerializer(TokenObtainSerializer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        del self.fields['username']
+        self.fields['email'] = serializers.EmailField()
+
+    @classmethod
+    def get_token(cls, user):
+        return AccessToken.for_user(user)
+
+    def validate(self, attrs):
+        password = attrs['password']
+        email = attrs['email']
+        user = get_object_or_404(User, email=email)
+        if not user.check_password(password) or email != user.email:
+            raise serializers.ValidationError(
+                'Incorrect password and/or email'
+            )
+        attrs['USER'] = user
+        return attrs
+
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ('id', 'name', 'slug')
+
+
+class IngredientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ingredient
+        fields = ('id', 'name', 'measurement_unit')
+
+
+class RecipeIngredientSerializer(serializers.ModelSerializer):
+    id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+
+    class Meta:
+        model = RecipeIngredient
+        fields = ('id', 'amount')
+
+
+class RecipeSerializer(serializers.ModelSerializer):
+    ingredients = RecipeIngredientSerializer(
+        source='recipe_ingredients', many=True
+    )
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(), many=True
+    )
+    author = UserReadSerializer(read_only=True)
+
+    def create(self, validated_data):
+        ingredients_data = validated_data.pop('recipe_ingredients')
+        tags_data = validated_data.pop('tags')
+        request = self.context.get('request')
+        validated_data['author'] = request.user
+        recipe = Recipe.objects.create(**validated_data)
+
+        for ingredient_data in ingredients_data:
+            ingredient = get_object_or_404(
+                Ingredient, id=ingredient_data['id'].id
+            )
+            RecipeIngredient.objects.create(
+                recipe=recipe,
+                ingredient=ingredient,
+                amount=ingredient_data.get('amount', None),
+            )
+
+        recipe.tags.set(tags_data)
+
+        return recipe
+
+    def update(self, instance, validated_data):
+        instance.name = validated_data.get('name', instance.name)
+        instance.text = validated_data.get('text', instance.text)
+        instance.cooking_time = validated_data.get(
+            'cooking_time', instance.cooking_time
+        )
+        instance.image = validated_data.get('image', instance.image)
+
+        ingredients_data = validated_data.pop('recipe_ingredients', None)
+        tags_data = validated_data.pop('tags', None)
+        if tags_data is not None:
+            instance.tags.set(tags_data)
+
+        if ingredients_data is not None:
+            instance.recipe_ingredients.all().delete()
+            for ingredient_data in ingredients_data:
+                ingredient = get_object_or_404(
+                    Ingredient, id=ingredient_data['id'].id
+                )
+                RecipeIngredient.objects.create(
+                    recipe=instance,
+                    ingredient=ingredient,
+                    amount=ingredient_data.get('amount', None),
+                )
+
+        instance.save()
+        return instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['tags'] = TagSerializer(
+            instance.tags.all(), many=True
+        ).data
+        representation['ingredients'] = RecipeIngredientSerializer(
+            instance.recipe_ingredients.all(), many=True
+        ).data
+        return representation
+
+    class Meta:
+        model = Recipe
+        fields = (
+            'id',
+            'tags',
+            'author',
+            'ingredients',
+            'image',
+            'name',
+            'text',
+            'cooking_time',
+        )
 
 
 class Base64ImageField(serializers.ImageField):

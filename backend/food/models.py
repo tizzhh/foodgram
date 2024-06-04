@@ -45,8 +45,10 @@ class Recipe(models.Model):
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     text = models.TextField()
     cooking_time = models.PositiveSmallIntegerField()
-    tag = models.ManyToManyField(Tag)
-    ingredient = models.ManyToManyField(Ingredient, through='RecipeIngredient')
+    tags = models.ManyToManyField(Tag)
+    ingredients = models.ManyToManyField(
+        Ingredient, through='RecipeIngredient'
+    )
     image = models.ImageField(
         upload_to='api/images/', null=True, default=None, blank=True
     )
@@ -55,6 +57,7 @@ class Recipe(models.Model):
     )
 
     class Meta:
+        ordering = ('id',)
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 
@@ -82,8 +85,12 @@ class ShoppingCart(models.Model):
 
 class RecipeIngredient(models.Model):
     amount = models.SmallIntegerField()
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(
+        Recipe, related_name='recipe_ingredients', on_delete=models.CASCADE
+    )
+    ingredient = models.ForeignKey(
+        Ingredient, related_name='ingredient_recipes', on_delete=models.CASCADE
+    )
 
     def __str__(self) -> str:
         return f'Recipe {self.recipe.name} has the ingredient {self.ingredient.name} with an amount: {self.amount}'

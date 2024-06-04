@@ -1,15 +1,60 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import (
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
+from shortener import shortener
 
 from .serializers import (
     FoodgramTokenObtainSerializer,
+    IngredientSerializer,
+    RecipeSerializer,
+    TagSerializer,
     UserCreateSerializer,
     UserReadSerializer,
     UserUpdatePasswordSerializer,
 )
-from food.models import User
+from food.models import Ingredient, Recipe, ShoppingCart, Tag, User
+
+
+class RecipeViewSet(viewsets.ModelViewSet):
+    queryset = Recipe.objects.all()
+    serializer_class = RecipeSerializer
+    permission_classes = (IsAuthenticatedOrReadOnly,)
+    http_method_names = ('get', 'post', 'patch')
+
+    @action(
+        detail=False,
+        methods=('get',),
+        permission_classes=(IsAuthenticated,),
+        url_path='download_shopping_cart',
+    )
+    def download_shopping_cart(self, request):
+        cart_data = ShoppingCart.objects.filter(author=request.user)
+        print(cart_data)
+
+    @action(
+        detail=True,
+        methods=('get',),
+        url_path='get-link',
+    )
+    def get_short_link(self, request, pk):
+        original_url = request.get_full_path()
+        short_link = shortener.create(request.user.id, original_url)
+        return Response({'short-link': short_link})
+
+
+class TagViewSet(viewsets.ModelViewSet):
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
+    http_method_names = ('get',)
+
+
+class IngredientViewSet(viewsets.ModelViewSet):
+    queryset = Ingredient.objects.all()
+    serializer_class = IngredientSerializer
 
 
 class FoodgramToken(viewsets.GenericViewSet):
@@ -46,7 +91,7 @@ class UserViewSet(viewsets.ModelViewSet):
     http_method_names = (
         'get',
         'post',
-        'patch',
+        'put',
         'delete',
     )
 
@@ -57,7 +102,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=('get', 'patch'),
+        methods=('get',),
         permission_classes=(IsAuthenticated,),
         url_path='me',
     )

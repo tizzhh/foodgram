@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
+import datetime
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'food.apps.FoodConfig',
     'foodgram_user.apps.FoodgramUserConfig',
+    'shortener',
 ]
 
 MIDDLEWARE = [
@@ -89,6 +91,9 @@ DATABASES = {
 
 
 REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
@@ -98,6 +103,7 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "TOKEN_OBTAIN_SERIALIZER": "api.serializers.FoodgramTokenObtainSerializer",
+    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(days=1),
 }
 
 AUTH_USER_MODEL = 'foodgram_user.FoodgramUser'
