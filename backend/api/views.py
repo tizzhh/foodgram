@@ -1,6 +1,8 @@
 import os
+import tempfile
 
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import (
@@ -11,16 +13,19 @@ from rest_framework.response import Response
 from shortener import shortener
 
 from .serializers import (
+    FavouriteSeriazlier,
     FoodgramTokenObtainSerializer,
     IngredientSerializer,
     RecipeSerializer,
     ShoppingCartSerializer,
+    SubscriptionSerializer,
     TagSerializer,
     UserCreateSerializer,
     UserReadSerializer,
     UserUpdatePasswordSerializer,
 )
 from food.models import (
+    Favourite,
     Ingredient,
     Recipe,
     RecipeIngredient,
@@ -30,15 +35,14 @@ from food.models import (
 )
 
 
-class ShoppingCartViewSet(viewsets.ModelViewSet):
-    queryset = ShoppingCart.objects.all()
-    serializer_class = ShoppingCartSerializer
+class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
+    serializer_class = None
     permission_classes = (IsAuthenticated,)
     lookup_field = 'recipe_id'
 
     def create(self, request, *args, **kwargs):
         recipe_id = self.kwargs.get('recipe_id')
-        serializer = ShoppingCartSerializer(
+        serializer = self.get_serializer(
             data=self.request.data,
             context={'recipe_id': recipe_id, 'user': self.request.user},
         )
@@ -46,6 +50,43 @@ class ShoppingCartViewSet(viewsets.ModelViewSet):
         recipe = serializer.validated_data['recipe']
         serializer.save(author=self.request.user, recipe=recipe)
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+
+class SubscriptionViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = SubscriptionSerializer
+    permission_classes = (IsAuthenticated,)
+    lookup_field = 'id'
+
+    def create(self, request, *args, **kwargs):
+        user_id_to_subscribe = self.kwargs.get('id')
+        user_to_subscribe = get_object_or_404(User, id=user_id_to_subscribe)
+        serializer = SubscriptionSerializer(
+            user_to_subscribe,
+            data=request.data,
+            context={'user_id': user_id_to_subscribe, 'user': request.user},
+        )
+        serializer.is_valid(raise_exception=True)
+        request.user.is_subscribed.add(user_to_subscribe)
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        user_id_to_unsubscribe = self.kwargs.get('id')
+        user_to_unsubscribe = get_object_or_404(
+            User, id=user_id_to_unsubscribe
+        )
+        request.user.is_subscribed.remove(user_to_unsubscribe)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FavouriteViewSet(BaseFavoriteShoppingCartViewSet):
+    queryset = Favourite.objects.all()
+    serializer_class = FavouriteSeriazlier
+
+
+class ShoppingCartViewSet(BaseFavoriteShoppingCartViewSet):
+    queryset = ShoppingCart.objects.all()
+    serializer_class = ShoppingCartSerializer
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -79,21 +120,24 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     ingredient_to_download_amount + recipe_ingredient.amount
                 )
 
-        print(download_cart)
-        path = "tmp.txt"
-        try:
-            with open(path, 'a+') as tmp:
-                for name_measurement, amount in download_cart.items():
-                    tmp.write(
-                        f'• {name_measurement[0]} ({name_measurement[1]}) - {amount}\n'
-                    )
-                response = HttpResponse(tmp, content_type='text/plain')
-                response['Content-Disposition'] = (
-                    'attachment; filename="Список покупок"'
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode='w', encoding='utf-8'
+        ) as tmp:
+            path = tmp.name
+            for name_measurement, amount in download_cart.items():
+                tmp.write(
+                    f'• {name_measurement[0]} ({name_measurement[1]}) - {amount}\n'
                 )
-                return response
-        finally:
-            os.remove(path)
+
+        with open(path, 'rb') as tmp:
+            response = HttpResponse(tmp.read(), content_type='text/plain')
+            response['Content-Disposition'] = (
+                f'attachment; filename="shopping_list.txt"'
+            )
+
+        os.remove(path)
+
+        return response
 
     @action(
         detail=True,

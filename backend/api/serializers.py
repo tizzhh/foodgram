@@ -8,6 +8,7 @@ from rest_framework_simplejwt.serializers import TokenObtainSerializer
 from rest_framework_simplejwt.tokens import AccessToken
 
 from food.models import (
+    Favourite,
     Ingredient,
     Recipe,
     RecipeIngredient,
@@ -86,31 +87,104 @@ class FoodgramTokenObtainSerializer(TokenObtainSerializer):
         return attrs
 
 
-class ShoppingCartSerializerResponse(serializers.ModelSerializer):
+class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
         read_only_fields = ('id', 'name', 'image', 'cooking_time')
 
 
-class ShoppingCartSerializer(serializers.ModelSerializer):
+class SubscriptionSerializer(serializers.ModelSerializer):
+    recipes = ShoppingCartFavouriteSerializerResponse(
+        many=True, read_only=True
+    )
+    recipes_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            'email',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'is_subscribed',
+            'recipes',
+            'recipes_count',
+            'avatar',
+        )
+        read_only_fields = (
+            'email',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'is_subscribed',
+            'recipes',
+            'recipes_count',
+            'avatar',
+        )
+
+    def get_recipes_count(self, obj):
+        return Recipe.objects.filter(author=obj).count()
+
+    def validate(self, attrs):
+        user_id_to_subscribe = self.context.get('user_id')
+        user_to_subscribe = get_object_or_404(User, id=user_id_to_subscribe)
+
+        user_that_subscribes = self.context.get('user')
+        if user_id_to_subscribe == user_that_subscribes.id:
+            raise serializers.ValidationError('Cannot subscribe to oneself')
+        if user_that_subscribes.is_subscribed.filter(
+            id=user_to_subscribe.id
+        ).exists():
+            raise serializers.ValidationError('Already subscribed')
+
+        attrs['user_to_subscribe'] = user_to_subscribe
+        return attrs
+
+    def to_representation(self, instance):
+        user = self.context.get('user')
+        representation = super().to_representation(instance)
+        representation['is_subscribed'] = user.is_subscribed.filter(
+            id=instance.id
+        ).exists()
+        return representation
+
+
+class BaseFavoriteShoppingCartSeralizer(serializers.ModelSerializer):
+    model = None
+
     def validate(self, attrs):
         recipe_id = self.context.get('recipe_id')
         recipe = Recipe.objects.get(id=recipe_id)
-        if ShoppingCart.objects.filter(
+        if self.model.objects.filter(
             recipe=recipe, author=self.context.get('user')
         ).exists():
-            raise serializers.ValidationError('Recipe is already in cart')
+            raise serializers.ValidationError('The operation is already done')
         attrs['recipe'] = recipe
         return attrs
 
     def to_representation(self, instance):
-        return ShoppingCartSerializerResponse(instance.recipe).data
+        return ShoppingCartFavouriteSerializerResponse(instance.recipe).data
 
     class Meta:
-        model = ShoppingCart
         fields = ('recipe', 'author')
         read_only_fields = ('recipe', 'author')
+
+
+class FavouriteSeriazlier(BaseFavoriteShoppingCartSeralizer):
+    model = Favourite
+
+    class Meta(BaseFavoriteShoppingCartSeralizer.Meta):
+        model = Favourite
+
+
+class ShoppingCartSerializer(BaseFavoriteShoppingCartSeralizer):
+    model = ShoppingCart
+
+    class Meta(BaseFavoriteShoppingCartSeralizer.Meta):
+        model = ShoppingCart
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -196,9 +270,15 @@ class RecipeSerializer(serializers.ModelSerializer):
         representation['tags'] = TagSerializer(
             instance.tags.all(), many=True
         ).data
-        representation['ingredients'] = RecipeIngredientSerializer(
-            instance.recipe_ingredients.all(), many=True
-        ).data
+        representation['ingredients'] = [
+            {
+                'id': recipe_ingredient.ingredient.id,
+                'name': recipe_ingredient.ingredient.name,
+                'measurement_unit': recipe_ingredient.ingredient.measurement_unit,
+                'amount': recipe_ingredient.amount,
+            }
+            for recipe_ingredient in instance.recipe_ingredients.all()
+        ]
         return representation
 
     class Meta:

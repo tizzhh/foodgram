@@ -72,6 +72,17 @@ class Favourite(models.Model):
     def __str__(self) -> str:
         return f'{self.recipe.name} is in favourites of {self.author.username}'
 
+    class Meta:
+        ordering = ('author',)
+        verbose_name = 'Избранное'
+        verbose_name_plural = 'Избранное'
+        constraints = (
+            models.UniqueConstraint(
+                fields=('recipe', 'author'),
+                name='unique-together-recipe-author-in-favorite',
+            ),
+        )
+
 
 class ShoppingCart(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
