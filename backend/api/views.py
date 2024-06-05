@@ -18,7 +18,6 @@ from .filters import IngredientSearch, RecipeFilter
 from .permissions import IsAuthorOrSuperuser, IsAuthOrSuperuserOrReadOnly
 from .serializers import (
     FavouriteSeriazlier,
-    FoodgramTokenObtainSerializer,
     IngredientSerializer,
     RecipeSerializer,
     ShoppingCartSerializer,
@@ -98,7 +97,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     permission_classes = (IsAuthOrSuperuserOrReadOnly, IsAuthorOrSuperuser)
-    http_method_names = ('get', 'post', 'patch')
+    http_method_names = ('get', 'post', 'patch', 'delete')
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
@@ -174,35 +173,6 @@ class IngredientViewSet(BaseTagIngredientViewSet):
     filterset_class = IngredientSearch
 
 
-class FoodgramToken(viewsets.GenericViewSet):
-    @action(
-        detail=False,
-        methods=('post',),
-        url_path='login',
-    )
-    def login_token(self, request):
-        serializer = FoodgramTokenObtainSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        access_token = serializer.get_token(serializer.validated_data['USER'])
-        return Response(
-            {
-                'auth_token': str(access_token),
-            },
-            status=status.HTTP_201_CREATED,
-        )
-
-    @action(
-        detail=False,
-        methods=('post',),
-        permission_classes=(IsAuthenticated,),
-        url_path='logout',
-    )
-    def logout_token(self, request):
-        serializer = FoodgramTokenObtainSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
-
-
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     http_method_names = (
@@ -268,8 +238,6 @@ class UserViewSet(viewsets.ModelViewSet):
             self.request.user, data=request.data, partial=True
         )
         serializer.is_valid(raise_exception=True)
-        if request.method == 'PATCH':
-            serializer.save()
         return Response(serializer.data)
 
     @action(

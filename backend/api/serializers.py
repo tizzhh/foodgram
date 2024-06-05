@@ -83,28 +83,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
         fields = ('email', 'username', 'first_name', 'last_name', 'password')
 
 
-class FoodgramTokenObtainSerializer(TokenObtainSerializer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        del self.fields['username']
-        self.fields['email'] = serializers.EmailField()
-
-    @classmethod
-    def get_token(cls, user):
-        return AccessToken.for_user(user)
-
-    def validate(self, attrs):
-        password = attrs['password']
-        email = attrs['email']
-        user = get_object_or_404(User, email=email)
-        if not user.check_password(password) or email != user.email:
-            raise serializers.ValidationError(
-                'Incorrect password and/or email'
-            )
-        attrs['USER'] = user
-        return attrs
-
-
 class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
     class Meta:
         model = Recipe

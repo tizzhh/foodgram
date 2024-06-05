@@ -6,6 +6,8 @@ MAX_NAME_LENGTH = 64
 
 
 class FoodgramUser(AbstractUser):
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
     avatar = models.ImageField(
         upload_to='api/images/', null=True, default=None
     )

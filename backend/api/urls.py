@@ -11,7 +11,6 @@ api_v1_router = DefaultRouter()
 # ) # по какой-то причине такой подход с http_method_names, включающий в себя
 # delete дает 405 на delete
 api_v1_router.register('users', views.UserViewSet, basename='users')
-api_v1_router.register('auth/token', views.FoodgramToken, basename='jwt-token')
 api_v1_router.register('tags', views.TagViewSet, basename='tags')
 api_v1_router.register(
     'ingredients', views.IngredientViewSet, basename='ingredients'
@@ -42,4 +41,5 @@ urlpatterns = [
         name='favorite',
     ),
     path('', include(api_v1_router.urls)),
+    path('auth/', include('djoser.urls.authtoken')),
 ]
