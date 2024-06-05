@@ -95,10 +95,11 @@ class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
-    recipes = ShoppingCartFavouriteSerializerResponse(
-        many=True, read_only=True
-    )
-    recipes_count = serializers.SerializerMethodField()
+    # recipes = ShoppingCartFavouriteSerializerResponse(
+    #     many=True, read_only=True
+    # )
+    recipes = serializers.SerializerMethodField('get_recipes')
+    recipes_count = serializers.SerializerMethodField('get_recipes_count')
 
     class Meta:
         model = User
@@ -124,6 +125,14 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'recipes_count',
             'avatar',
         )
+
+    def get_recipes(self, obj):
+        recipes_limit = self.context.get('recipes_limit')
+        # print(recipes_limit)
+        recipes = Recipe.objects.filter(author=obj)
+        if recipes_limit:
+            recipes = recipes[: int(recipes_limit)]
+        return ShoppingCartFavouriteSerializerResponse(recipes, many=True).data
 
     def get_recipes_count(self, obj):
         return Recipe.objects.filter(author=obj).count()

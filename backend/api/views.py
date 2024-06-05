@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (
     IsAuthenticated,
     IsAuthenticatedOrReadOnly,
@@ -152,6 +153,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
 class BaseTagIngredientViewSet(viewsets.ModelViewSet):
     http_method_names = ('get',)
+    pagination_class = None
 
 
 class TagViewSet(BaseTagIngredientViewSet):
@@ -206,6 +208,30 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ('retrieve', 'list'):
             return UserReadSerializer
         return UserCreateSerializer
+
+    @action(
+        detail=False,
+        methods=('get',),
+        permission_classes=(IsAuthenticated,),
+        url_path='subscriptions',
+    )
+    def get_my_subscriptions(self, request):
+        subscribed_to_users = request.user.is_subscribed.all()
+        paginator = PageNumberPagination()
+        paginated_users = paginator.paginate_queryset(
+            subscribed_to_users, request
+        )
+        recipes_limit = request.query_params.get('recipes_limit')
+        serializer = SubscriptionSerializer(
+            paginated_users,
+            many=True,
+            context={
+                'user_id': request.user.id,
+                'user': request.user,
+                'recipes_limit': recipes_limit,
+            },
+        )
+        return paginator.get_paginated_response(serializer.data)
 
     @action(
         detail=False,

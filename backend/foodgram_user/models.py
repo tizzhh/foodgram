@@ -15,6 +15,7 @@ class FoodgramUser(AbstractUser):
     email = models.EmailField(unique=True)
 
     class Meta:
+        ordering = ('id',)
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
