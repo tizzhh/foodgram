@@ -1,10 +1,10 @@
 import django_filters
-from django_filters import rest_framework as filters
+from django.db.models import Q
 
-from food.models import Recipe
+from food.models import Ingredient, Recipe
 
 
-class RecipeFilter(filters.FilterSet):
+class RecipeFilter(django_filters.FilterSet):
     tags = django_filters.CharFilter(field_name='tags__slug')
     is_favorited = django_filters.NumberFilter(method='filter_is_favorited')
     is_in_shopping_cart = django_filters.NumberFilter(
@@ -31,3 +31,20 @@ class RecipeFilter(filters.FilterSet):
             'is_favorited',
             'is_in_shopping_cart',
         )
+
+
+class IngredientSearch(django_filters.FilterSet):
+    name = django_filters.CharFilter(method='filter_by_name')
+
+    def filter_by_name(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        results = queryset.filter(
+            Q(name__istartswith=value) | Q(name__icontains=value)
+        ).all()
+        return results
+
+    class Meta:
+        model = Ingredient
+        fields = ('name',)
