@@ -66,8 +66,12 @@ class Recipe(models.Model):
 
 
 class Favourite(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(
+        Recipe, related_name='favourites', on_delete=models.CASCADE
+    )
+    author = models.ForeignKey(
+        User, related_name='favourites', on_delete=models.CASCADE
+    )
 
     def __str__(self) -> str:
         return f'{self.recipe.name} is in favourites of {self.author.username}'
@@ -85,8 +89,12 @@ class Favourite(models.Model):
 
 
 class ShoppingCart(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(
+        Recipe, related_name='shoppingcart', on_delete=models.CASCADE
+    )
+    author = models.ForeignKey(
+        User, related_name='shoppingcart', on_delete=models.CASCADE
+    )
 
     def __str__(self) -> str:
         return (

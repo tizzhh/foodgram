@@ -12,6 +12,10 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='foodgramuser',
-            options={'ordering': ('id',), 'verbose_name': 'Пользователь', 'verbose_name_plural': 'Пользователи'},
+            options={
+                'ordering': ('id',),
+                'verbose_name': 'Пользователь',
+                'verbose_name_plural': 'Пользователи',
+            },
         ),
     ]

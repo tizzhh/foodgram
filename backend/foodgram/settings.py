@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'food.apps.FoodConfig',
     'foodgram_user.apps.FoodgramUserConfig',
     'shortener',
+    'django_filters',
 ]
 
 MIDDLEWARE = [

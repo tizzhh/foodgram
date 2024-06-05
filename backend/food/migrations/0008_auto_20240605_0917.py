@@ -12,10 +12,17 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='favourite',
-            options={'ordering': ('author',), 'verbose_name': 'Избранное', 'verbose_name_plural': 'Избранное'},
+            options={
+                'ordering': ('author',),
+                'verbose_name': 'Избранное',
+                'verbose_name_plural': 'Избранное',
+            },
         ),
         migrations.AddConstraint(
             model_name='favourite',
-            constraint=models.UniqueConstraint(fields=('recipe', 'author'), name='unique-together-recipe-author-in-favorite'),
+            constraint=models.UniqueConstraint(
+                fields=('recipe', 'author'),
+                name='unique-together-recipe-author-in-favorite',
+            ),
         ),
     ]
