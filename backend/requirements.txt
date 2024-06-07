@@ -3,5 +3,7 @@ djangorestframework==3.12.4
 djoser==2.1.0
 Pillow==9.0.0
 djoser==2.1.0
-django-link-shortener==0.5
+pyshorteners==1.0.1
+# shortener==0.2.1
+# django-link-shortener==0.5
 django-filter==23.1

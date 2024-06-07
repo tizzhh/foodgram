@@ -1,18 +1,15 @@
 import os
 import tempfile
 
+import pyshorteners
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import (
-    IsAuthenticated,
-    IsAuthenticatedOrReadOnly,
-)
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from shortener import shortener
 
 from .filters import IngredientSearch, RecipeFilter
 from .permissions import IsAuthorOrSuperuser, IsAuthOrSuperuserOrReadOnly
@@ -41,7 +38,7 @@ from food.models import (
 
 class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
     serializer_class = None
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthorOrSuperuser,)
     lookup_field = 'recipe_id'
 
     def create(self, request, *args, **kwargs):
@@ -65,10 +62,15 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         user_id_to_subscribe = self.kwargs.get('id')
         user_to_subscribe = get_object_or_404(User, id=user_id_to_subscribe)
+        recipes_limit = request.query_params.get('recipes_limit')
         serializer = SubscriptionSerializer(
             user_to_subscribe,
             data=request.data,
-            context={'user_id': user_id_to_subscribe, 'user': request.user},
+            context={
+                'user_id': user_id_to_subscribe,
+                'user': request.user,
+                'recipes_limit': recipes_limit,
+            },
         )
         serializer.is_valid(raise_exception=True)
         request.user.is_subscribed.add(user_to_subscribe)
@@ -79,6 +81,13 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         user_to_unsubscribe = get_object_or_404(
             User, id=user_id_to_unsubscribe
         )
+        if not request.user.is_subscribed.filter(
+            id=user_id_to_unsubscribe
+        ).exists():
+            return Response(
+                {"detail": "Страница не найдена."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         request.user.is_subscribed.remove(user_to_unsubscribe)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -86,11 +95,38 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 class FavouriteViewSet(BaseFavoriteShoppingCartViewSet):
     queryset = Favourite.objects.all()
     serializer_class = FavouriteSeriazlier
+    # permission_classes = (IsAuthOrNotFound,)
+
+    def destroy(self, request, *args, **kwargs):
+        recipe_id_to_delete = self.kwargs.get('recipe_id')
+        recipe_to_delete = get_object_or_404(Recipe, id=recipe_id_to_delete)
+        if not (
+            item := request.user.favourites.filter(recipe=recipe_to_delete)
+        ).exists():
+            return Response(
+                {"detail": "Страница не найдена."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ShoppingCartViewSet(BaseFavoriteShoppingCartViewSet):
     queryset = ShoppingCart.objects.all()
     serializer_class = ShoppingCartSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        recipe_id_to_delete = self.kwargs.get('recipe_id')
+        recipe_to_delete = get_object_or_404(Recipe, id=recipe_id_to_delete)
+        if not (
+            item := request.user.shoppingcart.filter(recipe=recipe_to_delete)
+        ).exists():
+            return Response(
+                {"detail": "Страница не найдена."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -151,9 +187,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='get-link',
     )
     def get_short_link(self, request, pk):
-        original_url = request.get_full_path()
-        short_link = shortener.create(request.user.id, original_url)
-        return Response({'short-link': short_link})
+        s = pyshorteners.Shortener()
+        short_url = s.tinyurl.short(request.get_full_path())
+        return Response({'short-link': short_url})
 
 
 class BaseTagIngredientViewSet(viewsets.ModelViewSet):
@@ -195,7 +231,7 @@ class UserViewSet(viewsets.ModelViewSet):
     )
     def get_my_subscriptions(self, request):
         subscribed_to_users = request.user.is_subscribed.all()
-        paginator = PageNumberPagination()
+        paginator = LimitOffsetPagination()
         paginated_users = paginator.paginate_queryset(
             subscribed_to_users, request
         )
@@ -219,7 +255,9 @@ class UserViewSet(viewsets.ModelViewSet):
     )
     def add_avatar(self, request):
         if request.method == 'PUT':
-            seriazlier = UserAvatarSeriazlier(data=request.data)
+            seriazlier = UserAvatarSeriazlier(
+                self.request.user, data=request.data
+            )
             seriazlier.is_valid(raise_exception=True)
             seriazlier.save()
             return Response(data=seriazlier.data)

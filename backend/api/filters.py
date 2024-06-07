@@ -5,11 +5,17 @@ from food.models import Ingredient, Recipe
 
 
 class RecipeFilter(django_filters.FilterSet):
-    tags = django_filters.CharFilter(field_name='tags__slug')
+    tags = django_filters.CharFilter(method='filter_tags')
     is_favorited = django_filters.NumberFilter(method='filter_is_favorited')
     is_in_shopping_cart = django_filters.NumberFilter(
         method='filter_is_in_shopping_cart'
     )
+
+    def filter_tags(self, queryset, name, value):
+        tag_slugs = self.request.query_params.getlist('tags')
+        if tag_slugs:
+            return queryset.filter(tags__slug__in=tag_slugs).distinct()
+        return queryset
 
     def filter_is_favorited(self, queryset, name, value):
         if value:

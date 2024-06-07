@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'food.apps.FoodConfig',
     'foodgram_user.apps.FoodgramUserConfig',
-    'shortener',
     'django_filters',
     'rest_framework.authtoken',
 ]
@@ -107,11 +106,6 @@ DJOSER = {
     'LOGIN_FIELD': 'email',
 }
 
-SIMPLE_JWT = {
-    "TOKEN_OBTAIN_SERIALIZER": "api.serializers.FoodgramTokenObtainSerializer",
-    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(days=1),
-}
-
 AUTH_USER_MODEL = 'foodgram_user.FoodgramUser'
 
 # Password validation
@@ -136,7 +130,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
 
-LANGUAGE_CODE = 'ru-RU'
+LANGUAGE_CODE = 'en-en'
 
 TIME_ZONE = 'UTC'
 

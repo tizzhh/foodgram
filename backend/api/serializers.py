@@ -158,7 +158,7 @@ class BaseFavoriteShoppingCartSeralizer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         recipe_id = self.context.get('recipe_id')
-        recipe = Recipe.objects.get(id=recipe_id)
+        recipe = get_object_or_404(Recipe, id=recipe_id)
         if self.model.objects.filter(
             recipe=recipe, author=self.context.get('user')
         ).exists():
@@ -203,6 +203,11 @@ class IngredientSerializer(serializers.ModelSerializer):
 class RecipeIngredientSerializer(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
 
+    # def validate_amount(self, value):
+    #     if value < 1:
+    #         raise serializers.ValidationError('amount should be >= 1')
+    #     return value
+
     class Meta:
         model = RecipeIngredient
         fields = ('id', 'amount')
@@ -220,6 +225,47 @@ class RecipeSerializer(serializers.ModelSerializer):
     is_in_shopping_cart = serializers.SerializerMethodField(
         'get_is_in_shopping_cart'
     )
+    image = Base64ImageField()
+
+    def validate_cooking_time(self, value):
+        if value < 1:
+            raise serializers.ValidationError(
+                {'cooking_time': 'cooking time cannot be less than 1'}
+            )
+        return value
+
+    def validate(self, attrs):
+        ingredient_data = attrs.get('recipe_ingredients')
+        tag_data = attrs.get('tags')
+        if not ingredient_data:
+            raise serializers.ValidationError(
+                {'ingredients': 'this field is required.'}
+            )
+        if not tag_data:
+            raise serializers.ValidationError(
+                {'tags': 'this field is required.'}
+            )
+
+        ingredient_ids = set()
+        for ingredient in ingredient_data:
+            if ingredient['amount'] < 1:
+                raise serializers.ValidationError(
+                    {'amount': 'amount cannot be less than 1'}
+                )
+            if ingredient['id'] in ingredient_ids:
+                raise serializers.ValidationError(
+                    {'ingredients': 'ingredients should be unique'}
+                )
+            ingredient_ids.add(ingredient['id'])
+
+        tag_ids = set()
+        for tag in tag_data:
+            if tag in tag_ids:
+                raise serializers.ValidationError(
+                    {'ingredients': 'ingredients should be unique'}
+                )
+            tag_ids.add(tag)
+        return attrs
 
     def get_is_favorited(self, obj):
         request = self.context.get('request')
