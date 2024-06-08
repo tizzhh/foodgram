@@ -15,7 +15,7 @@ services:
       - pg_data:/var/lib/postgresql/data
 
   backend:
-    build: ../backend
+    image: tizzhh/foodgram_backend
     env_file:
       - .env
     depends_on:
@@ -26,7 +26,7 @@ services:
 
   frontend:
     container_name: foodgram-front
-    build: ../frontend
+    image: tizzhh/foodgram_frontend
     command: cp -r /app/build/. /static/
     volumes:
       - static:/static

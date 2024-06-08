@@ -20,17 +20,9 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    class MeasurementUnits(models.TextChoices):
-        KG = "кг"
-        GR = "г"
-        ML = "мл"
-        COOK_PREFERENCE = "по вкусу" "COOK'S PREFERENCE"
-
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     measurement_unit = models.CharField(
         max_length=MAX_MEASUREMENT_LENGTH,
-        choices=MeasurementUnits.choices,
-        default=MeasurementUnits.COOK_PREFERENCE,
     )
 
     class Meta:
@@ -123,4 +115,11 @@ class RecipeIngredient(models.Model):
     )
 
     def __str__(self) -> str:
-        return f'Recipe {self.recipe.name} has the ingredient {self.ingredient.name} with an amount: {self.amount}'
+        return (
+            f'Recipe {self.recipe.name} has the ingredient '
+            f'{self.ingredient.name} with an amount: {self.amount}'
+        )
+
+    class Meta:
+        verbose_name = 'Рецепт-ингредиент'
+        verbose_name_plural = 'Рецепты-ингредиенты'

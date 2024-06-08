@@ -13,27 +13,13 @@ from rest_framework.response import Response
 
 from .filters import IngredientSearch, RecipeFilter
 from .permissions import IsAuthorOrSuperuser, IsAuthOrSuperuserOrReadOnly
-from .serializers import (
-    FavouriteSeriazlier,
-    IngredientSerializer,
-    RecipeSerializer,
-    ShoppingCartSerializer,
-    SubscriptionSerializer,
-    TagSerializer,
-    UserAvatarSeriazlier,
-    UserCreateSerializer,
-    UserReadSerializer,
-    UserUpdatePasswordSerializer,
-)
-from food.models import (
-    Favourite,
-    Ingredient,
-    Recipe,
-    RecipeIngredient,
-    ShoppingCart,
-    Tag,
-    User,
-)
+from .serializers import (FavouriteSeriazlier, IngredientSerializer,
+                          RecipeSerializer, ShoppingCartSerializer,
+                          SubscriptionSerializer, TagSerializer,
+                          UserAvatarSeriazlier, UserCreateSerializer,
+                          UserReadSerializer, UserUpdatePasswordSerializer)
+from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
+                         ShoppingCart, Tag, User)
 
 
 class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
@@ -85,7 +71,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             id=user_id_to_unsubscribe
         ).exists():
             return Response(
-                {"detail": "Страница не найдена."},
+                {'detail': 'Страница не найдена.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         request.user.is_subscribed.remove(user_to_unsubscribe)
@@ -104,7 +90,7 @@ class FavouriteViewSet(BaseFavoriteShoppingCartViewSet):
             item := request.user.favourites.filter(recipe=recipe_to_delete)
         ).exists():
             return Response(
-                {"detail": "recipe is missing from favourites"},
+                {'detail': 'recipe is missing from favourites'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         item.delete()
@@ -122,7 +108,7 @@ class ShoppingCartViewSet(BaseFavoriteShoppingCartViewSet):
             item := request.user.shoppingcart.filter(recipe=recipe_to_delete)
         ).exists():
             return Response(
-                {"detail": "recipe is missing from shopping cart"},
+                {'detail': 'recipe is missing from shopping cart'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         item.delete()
@@ -168,14 +154,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
             path = tmp.name
             for name_measurement, amount in download_cart.items():
                 tmp.write(
-                    f'• {name_measurement[0]} ({name_measurement[1]}) - {amount}\n'
+                    f'• {name_measurement[0]}'
+                    f'({name_measurement[1]}) - {amount}\n'
                 )
 
         with open(path, 'rb') as tmp:
             response = HttpResponse(tmp.read(), content_type='text/plain')
-            response[
-                'Content-Disposition'
-            ] = f'attachment; filename="shopping_list.txt"'
+            response['Content-Disposition'] = (
+                'attachment; filename=\'shopping_list.txt\''
+            )
 
         os.remove(path)
 

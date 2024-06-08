@@ -2,6 +2,7 @@ frontend/node_modules
 infra/frontend/build
 .env
 */*/images/
+*.sqlite3
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

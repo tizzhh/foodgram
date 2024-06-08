@@ -1,5 +1,4 @@
 from rest_framework import permissions
-from rest_framework.exceptions import NotFound
 
 
 class IsAuthorOrSuperuser(permissions.IsAuthenticatedOrReadOnly):

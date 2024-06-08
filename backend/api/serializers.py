@@ -3,18 +3,9 @@ import base64
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainSerializer
-from rest_framework_simplejwt.tokens import AccessToken
 
-from food.models import (
-    Favourite,
-    Ingredient,
-    Recipe,
-    RecipeIngredient,
-    ShoppingCart,
-    Tag,
-    User,
-)
+from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
+                         ShoppingCart, Tag, User)
 
 
 class Base64ImageField(serializers.ImageField):
@@ -341,7 +332,9 @@ class RecipeSerializer(serializers.ModelSerializer):
             {
                 'id': recipe_ingredient.ingredient.id,
                 'name': recipe_ingredient.ingredient.name,
-                'measurement_unit': recipe_ingredient.ingredient.measurement_unit,
+                'measurement_unit': (
+                    recipe_ingredient.ingredient.measurement_unit
+                ),
                 'amount': recipe_ingredient.amount,
             }
             for recipe_ingredient in instance.recipe_ingredients.all()
