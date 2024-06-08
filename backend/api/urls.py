@@ -4,7 +4,8 @@ from rest_framework.routers import DefaultRouter
 from api import views
 
 api_v1_router = DefaultRouter()
-# у меня не проходил никак один единственный тест в избранных, хотя локально было все норм
+# у меня не проходил никак один единственный тест в избранных,
+# хотя локально было все норм
 # наставники не смогли мне помочь, поэтому я оставил как есть :(
 # api_v1_router.register(
 #     r'recipes/(?P<recipe_id>\d+)/shopping_cart',
