@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('food', '0007_shoppingcart_unique-together-recipe-author-in-cart'),
     ]

@@ -4,6 +4,5 @@ djoser==2.1.0
 Pillow==9.0.0
 djoser==2.1.0
 pyshorteners==1.0.1
-# shortener==0.2.1
-# django-link-shortener==0.5
 django-filter==23.1
+gunicorn==20.1.0

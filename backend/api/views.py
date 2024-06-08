@@ -104,7 +104,7 @@ class FavouriteViewSet(BaseFavoriteShoppingCartViewSet):
             item := request.user.favourites.filter(recipe=recipe_to_delete)
         ).exists():
             return Response(
-                {"detail": "Страница не найдена."},
+                {"detail": "recipe is missing from favourites"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         item.delete()
@@ -122,7 +122,7 @@ class ShoppingCartViewSet(BaseFavoriteShoppingCartViewSet):
             item := request.user.shoppingcart.filter(recipe=recipe_to_delete)
         ).exists():
             return Response(
-                {"detail": "Страница не найдена."},
+                {"detail": "recipe is missing from shopping cart"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         item.delete()
@@ -173,9 +173,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         with open(path, 'rb') as tmp:
             response = HttpResponse(tmp.read(), content_type='text/plain')
-            response['Content-Disposition'] = (
-                f'attachment; filename="shopping_list.txt"'
-            )
+            response[
+                'Content-Disposition'
+            ] = f'attachment; filename="shopping_list.txt"'
 
         os.remove(path)
 

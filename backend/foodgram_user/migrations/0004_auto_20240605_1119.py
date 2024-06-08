@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('foodgram_user', '0003_alter_foodgramuser_options'),
     ]
