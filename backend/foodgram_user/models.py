@@ -12,7 +12,11 @@ class FoodgramUser(AbstractUser):
         upload_to='api/images/', null=True, default=None
     )
     is_subscribed = models.ManyToManyField(
-        'self', symmetrical=False, blank=True, related_name='subscribers'
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='subscribers',
+        through='Subscribe',
     )
     email = models.EmailField(unique=True)
 

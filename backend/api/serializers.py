@@ -1,22 +1,11 @@
-import base64
-
-from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
+from api.custom_fields import Base64ImageField
+# модель юзера получил в food.models, оттуда везде и импортирую
 from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
                          ShoppingCart, Tag, User)
-
-
-class Base64ImageField(serializers.ImageField):
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-
-            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
-
-        return super().to_internal_value(data)
+from foodgram_user.models import Subscribe
 
 
 class UserAvatarSeriazlier(serializers.ModelSerializer):
@@ -44,7 +33,10 @@ class UserReadSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField()
 
     def get_is_subscribed(self, obj):
-        return obj.subscribers.exists()
+        user = self.context.get('user', None)
+        if user is None or not user.is_authenticated:
+            return False
+        return Subscribe.objects.filter(user=user, subscription=obj).exists()
 
     class Meta:
         model = User
@@ -81,45 +73,11 @@ class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
         read_only_fields = ('id', 'name', 'image', 'cooking_time')
 
 
-class SubscriptionSerializer(serializers.ModelSerializer):
+class SubscriptionSerializerResponse(UserReadSerializer):
     recipes = serializers.SerializerMethodField('get_recipes')
     recipes_count = serializers.SerializerMethodField('get_recipes_count')
 
-    def get_recipes(self, obj):
-        recipes_limit = self.context.get('recipes_limit')
-        recipes = Recipe.objects.filter(author=obj)
-        if recipes_limit:
-            recipes = recipes[: int(recipes_limit)]
-        return ShoppingCartFavouriteSerializerResponse(recipes, many=True).data
-
-    def get_recipes_count(self, obj):
-        return Recipe.objects.filter(author=obj).count()
-
-    def validate(self, attrs):
-        user_id_to_subscribe = self.context.get('user_id')
-        user_to_subscribe = get_object_or_404(User, id=user_id_to_subscribe)
-
-        user_that_subscribes = self.context.get('user')
-        if user_id_to_subscribe == user_that_subscribes.id:
-            raise serializers.ValidationError('Cannot subscribe to oneself')
-        if user_that_subscribes.is_subscribed.filter(
-            id=user_to_subscribe.id
-        ).exists():
-            raise serializers.ValidationError('Already subscribed')
-
-        attrs['user_to_subscribe'] = user_to_subscribe
-        return attrs
-
-    def to_representation(self, instance):
-        user = self.context.get('user')
-        representation = super().to_representation(instance)
-        representation['is_subscribed'] = user.is_subscribed.filter(
-            id=instance.id
-        ).exists()
-        return representation
-
-    class Meta:
-        model = User
+    class Meta(UserReadSerializer.Meta):
         fields = (
             'email',
             'id',
@@ -131,17 +89,40 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'recipes_count',
             'avatar',
         )
-        read_only_fields = (
-            'email',
-            'id',
-            'username',
-            'first_name',
-            'last_name',
-            'is_subscribed',
-            'recipes',
-            'recipes_count',
-            'avatar',
-        )
+
+    def get_recipes(self, obj):
+        recipes_limit = self.context.get('recipes_limit')
+        recipes = Recipe.objects.filter(author=obj)
+        if recipes_limit:
+            recipes = recipes[: int(recipes_limit)]
+        return ShoppingCartFavouriteSerializerResponse(recipes, many=True).data
+
+    def get_recipes_count(self, obj):
+        return Recipe.objects.filter(author=obj).count()
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscribe
+        fields = ('user', 'subscription')
+
+    def to_representation(self, instance):
+        return SubscriptionSerializerResponse(instance.subscription).data
+
+    # 500 django.db.utils.IntegrityError без него
+    def validate(self, data):
+        user = data['user']
+        subscription = data['subscription']
+        if user == subscription:
+            raise serializers.ValidationError("Cannot subscribe to yourself")
+        if Subscribe.objects.filter(
+            user=user, subscription=subscription
+        ).exists():
+            raise serializers.ValidationError(
+                "Already subscribed to this user"
+            )
+
+        return data
 
 
 class BaseFavoriteShoppingCartSeralizer(serializers.ModelSerializer):

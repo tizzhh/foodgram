@@ -1,7 +1,6 @@
 import django_filters.rest_framework as filters
-from django.db.models import Q
 
-from food.models import Favourite, Ingredient, Recipe, Tag
+from food.models import Ingredient, Recipe, Tag
 
 
 class RecipeFilter(filters.FilterSet):

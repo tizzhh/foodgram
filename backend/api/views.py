@@ -5,10 +5,11 @@ import pyshorteners
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .filters import IngredientSearch, RecipeFilter
@@ -20,6 +21,7 @@ from .serializers import (FavouriteSeriazlier, IngredientSerializer,
                           UserReadSerializer, UserUpdatePasswordSerializer)
 from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
                          ShoppingCart, Tag, User)
+from foodgram_user.models import Subscribe
 
 
 class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
@@ -39,43 +41,43 @@ class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
 
-class SubscriptionViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = SubscriptionSerializer
-    permission_classes = (IsAuthenticated,)
-    lookup_field = 'id'
+# class SubscriptionViewSet(viewsets.ModelViewSet):
+#     queryset = User.objects.all()
+#     serializer_class = SubscriptionSerializer
+#     permission_classes = (IsAuthenticated,)
+#     lookup_field = 'id'
 
-    def create(self, request, *args, **kwargs):
-        user_id_to_subscribe = self.kwargs.get('id')
-        user_to_subscribe = get_object_or_404(User, id=user_id_to_subscribe)
-        recipes_limit = request.query_params.get('recipes_limit')
-        serializer = SubscriptionSerializer(
-            user_to_subscribe,
-            data=request.data,
-            context={
-                'user_id': user_id_to_subscribe,
-                'user': request.user,
-                'recipes_limit': recipes_limit,
-            },
-        )
-        serializer.is_valid(raise_exception=True)
-        request.user.is_subscribed.add(user_to_subscribe)
-        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+#     def create(self, request, *args, **kwargs):
+#         user_id_to_subscribe = self.kwargs.get('id')
+#         user_to_subscribe = get_object_or_404(User, id=user_id_to_subscribe)
+#         recipes_limit = request.query_params.get('recipes_limit')
+#         serializer = SubscriptionSerializer(
+#             user_to_subscribe,
+#             data=request.data,
+#             context={
+#                 'user_id': user_id_to_subscribe,
+#                 'user': request.user,
+#                 'recipes_limit': recipes_limit,
+#             },
+#         )
+#         serializer.is_valid(raise_exception=True)
+#         request.user.is_subscribed.add(user_to_subscribe)
+#         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
-    def destroy(self, request, *args, **kwargs):
-        user_id_to_unsubscribe = self.kwargs.get('id')
-        user_to_unsubscribe = get_object_or_404(
-            User, id=user_id_to_unsubscribe
-        )
-        if not request.user.is_subscribed.filter(
-            id=user_id_to_unsubscribe
-        ).exists():
-            return Response(
-                {'detail': 'Страница не найдена.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        request.user.is_subscribed.remove(user_to_unsubscribe)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+#     def destroy(self, request, *args, **kwargs):
+#         user_id_to_unsubscribe = self.kwargs.get('id')
+#         user_to_unsubscribe = get_object_or_404(
+#             User, id=user_id_to_unsubscribe
+#         )
+#         if not request.user.is_subscribed.filter(
+#             id=user_id_to_unsubscribe
+#         ).exists():
+#             return Response(
+#                 {'detail': 'Страница не найдена.'},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#         request.user.is_subscribed.remove(user_to_unsubscribe)
+#         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class FavouriteViewSet(BaseFavoriteShoppingCartViewSet):
@@ -196,6 +198,65 @@ class IngredientViewSet(BaseTagIngredientViewSet):
     filterset_class = IngredientSearch
 
 
+# class UserViewSet(DjoserUserViewSet):
+#     queryset = User.objects.all()
+#     serializer_class = UserReadSerializer
+#     permission_classes = [AllowAny]
+#     http_method_names = ('get', 'post', 'put', 'delete',)
+
+#     def get_queryset(self):
+#         queryset = super().get_queryset()
+#         print(queryset)
+#         return queryset
+
+#     def get_permissions(self):
+#         if '/me' in self.request.get_full_path():
+#             return (IsAuthenticated(),)
+#         return (AllowAny(),)
+
+#     @action(
+#         detail=False,
+#         methods=('get',),
+#         permission_classes=(IsAuthenticated,),
+#         url_path='subscriptions',
+#     )
+#     def get_my_subscriptions(self, request):
+#         subscribed_to_users = request.user.is_subscribed.all()
+#         paginator = LimitOffsetPagination()
+#         paginated_users = paginator.paginate_queryset(
+#             subscribed_to_users, request
+#         )
+#         recipes_limit = request.query_params.get('recipes_limit')
+#         serializer = SubscriptionSerializer(
+#             paginated_users,
+#             many=True,
+#             context={
+#                 'user_id': request.user.id,
+#                 'user': request.user,
+#                 'recipes_limit': recipes_limit,
+#             },
+#         )
+#         return paginator.get_paginated_response(serializer.data)
+
+#     @action(
+#         detail=False,
+#         methods=('put', 'delete'),
+#         permission_classes=(IsAuthenticated,),
+#         url_path='me/avatar',
+#     )
+#     def add_avatar(self, request):
+#         if request.method == 'PUT':
+#             seriazlier = UserAvatarSeriazlier(
+#                 self.request.user, data=request.data
+#             )
+#             seriazlier.is_valid(raise_exception=True)
+#             seriazlier.save()
+#             return Response(data=seriazlier.data)
+#         elif request.method == 'DELETE':
+#             request.user.avatar.delete(save=True)
+#             return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     http_method_names = (
@@ -209,6 +270,11 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ('retrieve', 'list'):
             return UserReadSerializer
         return UserCreateSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
 
     @action(
         detail=False,
@@ -283,3 +349,34 @@ class UserViewSet(viewsets.ModelViewSet):
             None,
             status=status.HTTP_204_NO_CONTENT,
         )
+
+    @action(
+        detail=True,
+        methods=('post',),
+        permission_classes=(IsAuthenticated,),
+        url_path='subscribe',
+    )
+    def subscribe(self, request, pk):
+        serializer = SubscriptionSerializer(
+            data={'user': request.user.id, 'subscription': pk},
+            context={
+                'recipes_limit': request.query_params.get('recipes_limit'),
+            },
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+    @subscribe.mapping.delete
+    def delete_subscription(self, request, pk):
+        get_object_or_404(User, id=pk)
+        deleted, _ = Subscribe.objects.filter(
+            user=request.user.id, subscription=pk
+        ).delete()
+        print(deleted)
+        if not deleted:
+            return Response(
+                {'detail': 'Страница не найдена.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)

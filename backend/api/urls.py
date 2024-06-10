@@ -33,13 +33,13 @@ urlpatterns = [
         ),
         name='favorite',
     ),
-    path(
-        'users/<int:id>/subscribe/',
-        views.SubscriptionViewSet.as_view(
-            {'post': 'create', 'delete': 'destroy'}
-        ),
-        name='favorite',
-    ),
+    # path(
+    #     'users/<int:id>/subscribe/',
+    #     views.SubscriptionViewSet.as_view(
+    #         {'post': 'create', 'delete': 'destroy'}
+    #     ),
+    #     name='favorite',
+    # ),
     path('', include(api_v1_router.urls)),
     path('auth/', include('djoser.urls.authtoken')),
 ]
