@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.contrib.auth.models import Group
+from django.db.models.aggregates import Count
 
 from .models import (Favourite, Ingredient, Recipe, RecipeIngredient,
                      ShoppingCart, Tag)
@@ -7,7 +7,11 @@ from .models import (Favourite, Ingredient, Recipe, RecipeIngredient,
 admin.site.empty_value_display = 'нет данных'
 admin.site.site_title = 'Админ-зона проекта Foodgram'
 admin.site.site_header = 'Админ-зона проекта Foodgram'
-admin.site.unregister(Group)
+
+
+class RecipeIngredientInline(admin.TabularInline):
+    model = RecipeIngredient
+    extra = 1
 
 
 @admin.register(Tag)
@@ -36,10 +40,18 @@ class ShoppingCartAdmin(admin.ModelAdmin):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'author')
+    list_display = ('id', 'name', 'author', 'favorited')
     list_display_links = ('name', 'author')
     list_filter = ('name',)
     search_field = ('name',)
+    inlines = (RecipeIngredientInline,)
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.annotate(favorited=Count('favourites'))
+
+    def favorited(self, obj):
+        return obj.favorited
 
 
 @admin.register(Favourite)
