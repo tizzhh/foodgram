@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.admin import UserAdmin as UserAdminSettings
 
 from food.models import User
 
@@ -9,7 +9,7 @@ admin.site.site_header = 'Админ-зона проекта Foodgram'
 
 
 @admin.register(User)
-class UserAdmin(UserAdmin):
+class UserAdmin(UserAdminSettings):
     list_display = (
         'id',
         'username',
