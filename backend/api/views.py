@@ -15,10 +15,11 @@ from rest_framework.response import Response
 from .filters import IngredientSearch, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (FavouriteSeriazlier, IngredientSerializer,
-                          RecipeSerializer, ShoppingCartSerializer,
-                          SubscriptionSerializer, TagSerializer,
-                          UserAvatarSeriazlier, UserCreateSerializer,
-                          UserReadSerializer, UserUpdatePasswordSerializer)
+                          RecipeReadSerializer, RecipeSerializer,
+                          ShoppingCartSerializer, SubscriptionSerializer,
+                          TagSerializer, UserAvatarSeriazlier,
+                          UserCreateSerializer, UserReadSerializer,
+                          UserUpdatePasswordSerializer)
 from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
                          ShoppingCart, Tag, User)
 from foodgram_user.models import Subscribe
@@ -124,6 +125,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
     http_method_names = ('get', 'post', 'patch', 'delete')
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def get_serializer_class(self):
+        if self.action in ('retrieve', 'list'):
+            return RecipeReadSerializer
+        return RecipeSerializer
 
     @action(
         detail=False,

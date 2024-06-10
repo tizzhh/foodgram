@@ -120,7 +120,18 @@ class ShoppingCart(RecipeAuthorBaseModel):
 
 
 class RecipeIngredient(models.Model):
-    amount = models.SmallIntegerField()
+    amount = models.SmallIntegerField(
+        validators=(
+            MinValueValidator(
+                constants.MIN_INGREDIENT_AMOUNT,
+                'Количество ингридиента не может быть меньше 1',
+            ),
+            MaxValueValidator(
+                constants.MAX_INGREDIENT_AMOUNT,
+                'Количество ингридиента не может быть больше 8192',
+            ),
+        )
+    )
     recipe = models.ForeignKey(
         Recipe, related_name='recipe_ingredients', on_delete=models.CASCADE
     )
