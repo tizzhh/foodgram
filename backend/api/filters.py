@@ -1,32 +1,29 @@
-import django_filters
+import django_filters.rest_framework as filters
 from django.db.models import Q
 
-from food.models import Ingredient, Recipe
+from food.models import Favourite, Ingredient, Recipe, Tag
 
 
-class RecipeFilter(django_filters.FilterSet):
-    tags = django_filters.CharFilter(method='filter_tags')
-    is_favorited = django_filters.NumberFilter(method='filter_is_favorited')
-    is_in_shopping_cart = django_filters.NumberFilter(
-        method='filter_is_in_shopping_cart'
+class RecipeFilter(filters.FilterSet):
+
+    tags = filters.ModelMultipleChoiceFilter(
+        queryset=Tag.objects.all(),
+    )
+    is_favorited = filters.BooleanFilter(
+        method='filter_is_favorited',
+    )
+    is_in_shopping_cart = filters.BooleanFilter(
+        method='filter_is_in_shopping_cart',
     )
 
-    def filter_tags(self, queryset, name, value):
-        tag_slugs = self.request.query_params.getlist('tags')
-        if tag_slugs:
-            return queryset.filter(tags__slug__in=tag_slugs).distinct()
-        return queryset
-
     def filter_is_favorited(self, queryset, name, value):
-        if value:
-            if self.request.user.is_authenticated:
-                return queryset.filter(favourites__author=self.request.user)
+        if value and self.request.user.is_authenticated:
+            return queryset.filter(favourites__author=self.request.user)
         return queryset
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
-        if value:
-            if self.request.user.is_authenticated:
-                return queryset.filter(shoppingcart__author=self.request.user)
+        if value and self.request.user.is_authenticated:
+            return queryset.filter(shoppingcart__author=self.request.user)
         return queryset
 
     class Meta:
@@ -39,17 +36,10 @@ class RecipeFilter(django_filters.FilterSet):
         )
 
 
-class IngredientSearch(django_filters.FilterSet):
-    name = django_filters.CharFilter(method='filter_by_name')
-
-    def filter_by_name(self, queryset, name, value):
-        if not value:
-            return queryset
-
-        results = queryset.filter(
-            Q(name__istartswith=value) | Q(name__icontains=value)
-        ).all()
-        return results
+class IngredientSearch(filters.FilterSet):
+    # не совсем понял, зачем тут field_name, если мы ищем
+    # по полю с таким же именем в модели и так.
+    name = filters.CharFilter(lookup_expr='icontains')
 
     class Meta:
         model = Ingredient

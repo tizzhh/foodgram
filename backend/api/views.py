@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .filters import IngredientSearch, RecipeFilter
-from .permissions import IsAuthorOrSuperuser, IsAuthOrSuperuserOrReadOnly
+from .permissions import IsAuthorOrReadOnly
 from .serializers import (FavouriteSeriazlier, IngredientSerializer,
                           RecipeSerializer, ShoppingCartSerializer,
                           SubscriptionSerializer, TagSerializer,
@@ -24,7 +24,7 @@ from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
 
 class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
     serializer_class = None
-    permission_classes = (IsAuthorOrSuperuser,)
+    permission_classes = (IsAuthorOrReadOnly,)
     lookup_field = 'recipe_id'
 
     def create(self, request, *args, **kwargs):
@@ -118,7 +118,7 @@ class ShoppingCartViewSet(BaseFavoriteShoppingCartViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
-    permission_classes = (IsAuthOrSuperuserOrReadOnly, IsAuthorOrSuperuser)
+    permission_classes = (IsAuthorOrReadOnly,)
     http_method_names = ('get', 'post', 'patch', 'delete')
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
