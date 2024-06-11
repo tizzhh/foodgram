@@ -16,8 +16,7 @@ from .serializers import (FavouriteSeriazlier, IngredientSerializer,
                           RecipeReadSerializer, RecipeSerializer,
                           ShoppingCartSerializer, SubscriptionReadSerializer,
                           SubscriptionSerializer, TagSerializer,
-                          UserAvatarSeriazlier, UserCreateSerializer,
-                          UserReadSerializer, UserUpdatePasswordSerializer)
+                          UserAvatarSeriazlier)
 from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
                          ShoppingCart, Tag, User)
 from foodgram_user.models import Subscribe
@@ -160,67 +159,7 @@ class IngredientViewSet(BaseTagIngredientViewSet):
     filterset_class = IngredientSearch
 
 
-# class UserViewSet(DjoserUserViewSet):
-#     queryset = User.objects.all()
-#     serializer_class = UserReadSerializer
-#     permission_classes = [AllowAny]
-#     http_method_names = ('get', 'post', 'put', 'delete',)
-
-#     def get_queryset(self):
-#         queryset = super().get_queryset()
-#         print(queryset)
-#         return queryset
-
-#     def get_permissions(self):
-#         if '/me' in self.request.get_full_path():
-#             return (IsAuthenticated(),)
-#         return (AllowAny(),)
-
-#     @action(
-#         detail=False,
-#         methods=('get',),
-#         permission_classes=(IsAuthenticated,),
-#         url_path='subscriptions',
-#     )
-#     def get_my_subscriptions(self, request):
-#         subscribed_to_users = request.user.is_subscribed.all()
-#         paginator = LimitOffsetPagination()
-#         paginated_users = paginator.paginate_queryset(
-#             subscribed_to_users, request
-#         )
-#         recipes_limit = request.query_params.get('recipes_limit')
-#         serializer = SubscriptionSerializer(
-#             paginated_users,
-#             many=True,
-#             context={
-#                 'user_id': request.user.id,
-#                 'user': request.user,
-#                 'recipes_limit': recipes_limit,
-#             },
-#         )
-#         return paginator.get_paginated_response(serializer.data)
-
-#     @action(
-#         detail=False,
-#         methods=('put', 'delete'),
-#         permission_classes=(IsAuthenticated,),
-#         url_path='me/avatar',
-#     )
-#     def add_avatar(self, request):
-#         if request.method == 'PUT':
-#             seriazlier = UserAvatarSeriazlier(
-#                 self.request.user, data=request.data
-#             )
-#             seriazlier.is_valid(raise_exception=True)
-#             seriazlier.save()
-#             return Response(data=seriazlier.data)
-#         elif request.method == 'DELETE':
-#             request.user.avatar.delete(save=True)
-#             return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+class UserViewSet(DjoserUserViewSet):
     http_method_names = (
         'get',
         'post',
@@ -228,15 +167,10 @@ class UserViewSet(viewsets.ModelViewSet):
         'delete',
     )
 
-    def get_serializer_class(self):
-        if self.action in ('retrieve', 'list'):
-            return UserReadSerializer
-        return UserCreateSerializer
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['user'] = self.request.user
-        return context
+    def get_permissions(self):
+        if '/me' in self.request.get_full_path():
+            return (IsAuthenticated(),)
+        return (AllowAny(),)
 
     @action(
         detail=False,
@@ -255,8 +189,6 @@ class UserViewSet(viewsets.ModelViewSet):
             paginated_users,
             many=True,
             context={
-                # 'user_id': request.user.id,
-                # 'user': request.user,
                 'recipes_limit': recipes_limit,
             },
         )
@@ -280,46 +212,14 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
-        detail=False,
-        methods=('get',),
-        permission_classes=(IsAuthenticated,),
-        url_path='me',
-    )
-    def retrieve_me(self, request):
-        serializer = UserReadSerializer(
-            self.request.user, data=request.data, partial=True
-        )
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data)
-
-    @action(
-        detail=False,
-        methods=('post',),
-        permission_classes=(IsAuthenticated,),
-        url_path='set_password',
-    )
-    def update_password(self, request):
-        serializer = UserUpdatePasswordSerializer(
-            data=request.data, context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['USER']
-        user.set_password(serializer.validated_data['new_password'])
-        user.save()
-        return Response(
-            None,
-            status=status.HTTP_204_NO_CONTENT,
-        )
-
-    @action(
         detail=True,
         methods=('post',),
         permission_classes=(IsAuthenticated,),
         url_path='subscribe',
     )
-    def subscribe(self, request, pk):
+    def subscribe(self, request, id):
         serializer = SubscriptionSerializer(
-            data={'user': request.user.id, 'subscription': pk},
+            data={'user': request.user.id, 'subscription': id},
             context={
                 'recipes_limit': request.query_params.get('recipes_limit'),
             },
@@ -329,10 +229,10 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
-    def delete_subscription(self, request, pk):
-        get_object_or_404(User, id=pk)
+    def delete_subscription(self, request, id):
+        get_object_or_404(User, id=id)
         deleted, _ = Subscribe.objects.filter(
-            user=request.user.id, subscription=pk
+            user=request.user.id, subscription=id
         ).delete()
         print(deleted)
         if not deleted:

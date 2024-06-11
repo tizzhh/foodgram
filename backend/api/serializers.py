@@ -17,17 +17,17 @@ class UserAvatarSeriazlier(serializers.ModelSerializer):
         fields = ('avatar',)
 
 
-class UserUpdatePasswordSerializer(serializers.Serializer):
-    new_password = serializers.CharField()
-    current_password = serializers.CharField()
+# class UserUpdatePasswordSerializer(serializers.Serializer):
+#     new_password = serializers.CharField()
+#     current_password = serializers.CharField()
 
-    def validate(self, attrs):
-        request = self.context.get('request')
-        user = get_object_or_404(User, email=request.user.email)
-        if not user.check_password(attrs['current_password']):
-            raise serializers.ValidationError('Incorrect password')
-        attrs['USER'] = user
-        return attrs
+#     def validate(self, attrs):
+#         request = self.context.get('request')
+#         user = get_object_or_404(User, email=request.user.email)
+#         if not user.check_password(attrs['current_password']):
+#             raise serializers.ValidationError('Incorrect password')
+#         attrs['USER'] = user
+#         return attrs
 
 
 class UserReadSerializer(serializers.ModelSerializer):
@@ -52,20 +52,20 @@ class UserReadSerializer(serializers.ModelSerializer):
         return Subscribe.objects.filter(user=user, subscription=obj).exists()
 
 
-class UserCreateSerializer(serializers.ModelSerializer):
+# class UserCreateSerializer(serializers.ModelSerializer):
 
-    class Meta:
-        model = User
-        fields = ('email', 'username', 'first_name', 'last_name', 'password')
+#     class Meta:
+#         model = User
+#         fields = ('email', 'username', 'first_name', 'last_name', 'password')
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data.pop('password')
-        data['id'] = instance.id
-        return data
+#     def to_representation(self, instance):
+#         data = super().to_representation(instance)
+#         data.pop('password')
+#         data['id'] = instance.id
+#         return data
 
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+#     def create(self, validated_data):
+#         return User.objects.create_user(**validated_data)
 
 
 class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
@@ -123,8 +123,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Already subscribed to this user"
             )
-
-        return data
+        print('aboba1')
+        return super().validate(data)
 
 
 class BaseFavoriteShoppingCartSeralizer(serializers.ModelSerializer):
