@@ -17,19 +17,6 @@ class UserAvatarSeriazlier(serializers.ModelSerializer):
         fields = ('avatar',)
 
 
-# class UserUpdatePasswordSerializer(serializers.Serializer):
-#     new_password = serializers.CharField()
-#     current_password = serializers.CharField()
-
-#     def validate(self, attrs):
-#         request = self.context.get('request')
-#         user = get_object_or_404(User, email=request.user.email)
-#         if not user.check_password(attrs['current_password']):
-#             raise serializers.ValidationError('Incorrect password')
-#         attrs['USER'] = user
-#         return attrs
-
-
 class UserReadSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField()
 
@@ -50,22 +37,6 @@ class UserReadSerializer(serializers.ModelSerializer):
         if user is None or not user.is_authenticated:
             return False
         return Subscribe.objects.filter(user=user, subscription=obj).exists()
-
-
-# class UserCreateSerializer(serializers.ModelSerializer):
-
-#     class Meta:
-#         model = User
-#         fields = ('email', 'username', 'first_name', 'last_name', 'password')
-
-#     def to_representation(self, instance):
-#         data = super().to_representation(instance)
-#         data.pop('password')
-#         data['id'] = instance.id
-#         return data
-
-#     def create(self, validated_data):
-#         return User.objects.create_user(**validated_data)
 
 
 class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
@@ -109,7 +80,9 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         fields = ('user', 'subscription')
 
     def to_representation(self, instance):
-        return SubscriptionReadSerializer(instance.subscription).data
+        return SubscriptionReadSerializer(
+            instance.subscription, context=self.context
+        ).data
 
     # 500 django.db.utils.IntegrityError без него
     def validate(self, data):
@@ -123,7 +96,6 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Already subscribed to this user"
             )
-        print('aboba1')
         return super().validate(data)
 
 
@@ -208,7 +180,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         )
 
     def get_is_favorited(self, obj):
-        print('aboba')
         request = self.context.get('request')
         return (
             request
@@ -220,7 +191,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     def get_is_in_shopping_cart(self, obj):
         request = self.context.get('request')
-        print(request)
         return (
             request
             and request.user.is_authenticated
@@ -245,7 +215,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
             }
             for recipe_ingredient in instance.recipe_ingredients.all()
         ]
-        print(representation)
         return representation
 
 

@@ -7,7 +7,7 @@ from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .filters import IngredientSearch, RecipeFilter
@@ -17,8 +17,8 @@ from .serializers import (FavouriteSeriazlier, IngredientSerializer,
                           ShoppingCartSerializer, SubscriptionReadSerializer,
                           SubscriptionSerializer, TagSerializer,
                           UserAvatarSeriazlier)
-from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
-                         ShoppingCart, Tag, User)
+from api.pagination import PageNumberWithLimitPagination
+from food.models import Ingredient, Recipe, RecipeIngredient, Tag, User
 from foodgram_user.models import Subscribe
 
 
@@ -46,6 +46,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     http_method_names = ('get', 'post', 'patch', 'delete')
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+    pagination_class = PageNumberWithLimitPagination
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -120,7 +121,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         for cart_data in queryset:
             shopping_cart_file_contents += (
                 f'• {cart_data["ingredient__name"]}'
-                f'({cart_data["ingredient__measurement_unit"]}) - {cart_data["total_amount"]}\n'
+                f'({cart_data["ingredient__measurement_unit"]})'
+                f' - {cart_data["total_amount"]}\n'
             )
 
         response = HttpResponse(
@@ -191,7 +193,7 @@ class UserViewSet(DjoserUserViewSet):
     def get_permissions(self):
         if '/me' in self.request.get_full_path():
             return (IsAuthenticated(),)
-        return (AllowAny(),)
+        return super().get_permissions()
 
     @action(
         detail=False,
@@ -239,6 +241,7 @@ class UserViewSet(DjoserUserViewSet):
         url_path='subscribe',
     )
     def subscribe(self, request, id):
+        get_object_or_404(User, id=id)
         serializer = SubscriptionSerializer(
             data={'user': request.user.id, 'subscription': id},
             context={
@@ -255,7 +258,6 @@ class UserViewSet(DjoserUserViewSet):
         deleted, _ = Subscribe.objects.filter(
             user=request.user.id, subscription=id
         ).delete()
-        print(deleted)
         if not deleted:
             return Response(
                 {'detail': 'Страница не найдена.'},

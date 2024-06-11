@@ -84,12 +84,9 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
     'PAGE_SIZE': 10,
-    # Стандартный LimitOffsetPagination не подойдет.
-    # Если присмотреться к пагинации в спеке, увидим, что там используется PageNumberPagination,
-    # в который добавлен параметр limit. Чтобы это реализовать,
-    # надо унаследоваться от этого класса и расширить его.
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGINATE_BY_PARAM': 'limit',
+    'PAGE_SIZE_QUERY_PARAM': 'limit',
+    'MAX_PAGE_SIZE': 100,
 }
 
 DJOSER = {
