@@ -14,6 +14,16 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='recipeingredient',
             name='amount',
-            field=models.SmallIntegerField(validators=[django.core.validators.MinValueValidator(1, 'Количество ингридиента не может быть меньше 1'), django.core.validators.MaxValueValidator(8192, 'Количество ингридиента не может быть больше 8192')]),
+            field=models.SmallIntegerField(
+                validators=[
+                    django.core.validators.MinValueValidator(
+                        1, 'Количество ингридиента не может быть меньше 1'
+                    ),
+                    django.core.validators.MaxValueValidator(
+                        8192,
+                        'Количество ингридиента не может быть больше 8192',
+                    ),
+                ]
+            ),
         ),
     ]

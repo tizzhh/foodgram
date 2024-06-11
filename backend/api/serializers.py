@@ -75,7 +75,7 @@ class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
         read_only_fields = ('id', 'name', 'image', 'cooking_time')
 
 
-class SubscriptionSerializerResponse(UserReadSerializer):
+class SubscriptionReadSerializer(UserReadSerializer):
     recipes = serializers.SerializerMethodField('get_recipes')
     recipes_count = serializers.SerializerMethodField('get_recipes_count')
 
@@ -109,7 +109,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         fields = ('user', 'subscription')
 
     def to_representation(self, instance):
-        return SubscriptionSerializerResponse(instance.subscription).data
+        return SubscriptionReadSerializer(instance.subscription).data
 
     # 500 django.db.utils.IntegrityError без него
     def validate(self, data):
@@ -130,11 +130,12 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 class BaseFavoriteShoppingCartSeralizer(serializers.ModelSerializer):
     class Meta:
         fields = ('recipe', 'author')
+        read_only_fields = ('recipe', 'author')
 
     def validate(self, attrs):
         recipe_id = self.context.get('recipe_id')
         recipe = get_object_or_404(Recipe, id=recipe_id)
-        if self.model.objects.filter(
+        if self.Meta.model.objects.filter(
             recipe=recipe, author=self.context.get('user')
         ).exists():
             raise serializers.ValidationError('The operation is already done')

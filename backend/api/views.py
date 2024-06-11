@@ -1,7 +1,5 @@
-import os
-import tempfile
-
 import pyshorteners
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -16,10 +14,10 @@ from .filters import IngredientSearch, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (FavouriteSeriazlier, IngredientSerializer,
                           RecipeReadSerializer, RecipeSerializer,
-                          ShoppingCartSerializer, SubscriptionSerializer,
-                          TagSerializer, UserAvatarSeriazlier,
-                          UserCreateSerializer, UserReadSerializer,
-                          UserUpdatePasswordSerializer)
+                          ShoppingCartSerializer, SubscriptionReadSerializer,
+                          SubscriptionSerializer, TagSerializer,
+                          UserAvatarSeriazlier, UserCreateSerializer,
+                          UserReadSerializer, UserUpdatePasswordSerializer)
 from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
                          ShoppingCart, Tag, User)
 from foodgram_user.models import Subscribe
@@ -42,49 +40,9 @@ class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
 
-# class SubscriptionViewSet(viewsets.ModelViewSet):
-#     queryset = User.objects.all()
-#     serializer_class = SubscriptionSerializer
-#     permission_classes = (IsAuthenticated,)
-#     lookup_field = 'id'
-
-#     def create(self, request, *args, **kwargs):
-#         user_id_to_subscribe = self.kwargs.get('id')
-#         user_to_subscribe = get_object_or_404(User, id=user_id_to_subscribe)
-#         recipes_limit = request.query_params.get('recipes_limit')
-#         serializer = SubscriptionSerializer(
-#             user_to_subscribe,
-#             data=request.data,
-#             context={
-#                 'user_id': user_id_to_subscribe,
-#                 'user': request.user,
-#                 'recipes_limit': recipes_limit,
-#             },
-#         )
-#         serializer.is_valid(raise_exception=True)
-#         request.user.is_subscribed.add(user_to_subscribe)
-#         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
-
-#     def destroy(self, request, *args, **kwargs):
-#         user_id_to_unsubscribe = self.kwargs.get('id')
-#         user_to_unsubscribe = get_object_or_404(
-#             User, id=user_id_to_unsubscribe
-#         )
-#         if not request.user.is_subscribed.filter(
-#             id=user_id_to_unsubscribe
-#         ).exists():
-#             return Response(
-#                 {'detail': 'Страница не найдена.'},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#         request.user.is_subscribed.remove(user_to_unsubscribe)
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
 class FavouriteViewSet(BaseFavoriteShoppingCartViewSet):
     queryset = Favourite.objects.all()
     serializer_class = FavouriteSeriazlier
-    # permission_classes = (IsAuthOrNotFound,)
 
     def destroy(self, request, *args, **kwargs):
         recipe_id_to_delete = self.kwargs.get('recipe_id')
@@ -136,6 +94,24 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return RecipeReadSerializer
         return RecipeSerializer
 
+    @staticmethod
+    def create_return_cart_file(queryset):
+        shopping_cart_file_contents = ''
+        for cart_data in queryset:
+            shopping_cart_file_contents += (
+                f'• {cart_data["ingredient__name"]}'
+                f'({cart_data["ingredient__measurement_unit"]}) - {cart_data["total_amount"]}\n'
+            )
+
+        response = HttpResponse(
+            shopping_cart_file_contents, content_type='text/plain'
+        )
+        response['Content-Disposition'] = (
+            'attachment; filename=\'shopping_list.txt\''
+        )
+
+        return response
+
     @action(
         detail=False,
         methods=('get',),
@@ -143,43 +119,18 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='download_shopping_cart',
     )
     def download_shopping_cart(self, request):
-        cart_data = ShoppingCart.objects.filter(author=request.user)
-        download_cart = {}
-        for cart in cart_data:
-            recipe = cart.recipe
-            recipe_ingredients = RecipeIngredient.objects.filter(recipe=recipe)
-            for recipe_ingredient in recipe_ingredients:
-                ingredient = recipe_ingredient.ingredient
-                ingredient_amount = (
-                    ingredient.name,
-                    ingredient.measurement_unit,
-                )
-                ingredient_to_download_amount = download_cart.get(
-                    ingredient_amount, 0
-                )
-                download_cart[ingredient_amount] = (
-                    ingredient_to_download_amount + recipe_ingredient.amount
-                )
-
-        with tempfile.NamedTemporaryFile(
-            delete=False, mode='w', encoding='utf-8'
-        ) as tmp:
-            path = tmp.name
-            for name_measurement, amount in download_cart.items():
-                tmp.write(
-                    f'• {name_measurement[0]}'
-                    f'({name_measurement[1]}) - {amount}\n'
-                )
-
-        with open(path, 'rb') as tmp:
-            response = HttpResponse(tmp.read(), content_type='text/plain')
-            response['Content-Disposition'] = (
-                'attachment; filename=\'shopping_list.txt\''
+        cart_data = (
+            RecipeIngredient.objects.filter(
+                recipe__shoppingcart__author=request.user
             )
+            .values(
+                'ingredient__name',
+                'ingredient__measurement_unit',
+            )
+            .annotate(total_amount=Sum('amount'))
+        )
 
-        os.remove(path)
-
-        return response
+        return self.create_return_cart_file(cart_data)
 
     @action(
         detail=True,
@@ -187,8 +138,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='get-link',
     )
     def get_short_link(self, request, pk):
-        s = pyshorteners.Shortener()
-        short_url = s.tinyurl.short(request.get_full_path())
+        shortener = pyshorteners.Shortener()
+        short_url = shortener.tinyurl.short(request.get_full_path())
         return Response({'short-link': short_url})
 
 
@@ -300,12 +251,12 @@ class UserViewSet(viewsets.ModelViewSet):
             subscribed_to_users, request
         )
         recipes_limit = request.query_params.get('recipes_limit')
-        serializer = SubscriptionSerializer(
+        serializer = SubscriptionReadSerializer(
             paginated_users,
             many=True,
             context={
-                'user_id': request.user.id,
-                'user': request.user,
+                # 'user_id': request.user.id,
+                # 'user': request.user,
                 'recipes_limit': recipes_limit,
             },
         )
@@ -313,21 +264,20 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=('put', 'delete'),
+        methods=('put',),
         permission_classes=(IsAuthenticated,),
         url_path='me/avatar',
     )
     def add_avatar(self, request):
-        if request.method == 'PUT':
-            seriazlier = UserAvatarSeriazlier(
-                self.request.user, data=request.data
-            )
-            seriazlier.is_valid(raise_exception=True)
-            seriazlier.save()
-            return Response(data=seriazlier.data)
-        elif request.method == 'DELETE':
-            request.user.avatar.delete(save=True)
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        seriazlier = UserAvatarSeriazlier(self.request.user, data=request.data)
+        seriazlier.is_valid(raise_exception=True)
+        seriazlier.save()
+        return Response(data=seriazlier.data)
+
+    @add_avatar.mapping.delete
+    def delete_avatar(self, request):
+        request.user.avatar.delete(save=True)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=False,
