@@ -135,11 +135,13 @@ class BaseFavoriteShoppingCartSeralizer(serializers.ModelSerializer):
     def validate(self, attrs):
         recipe_id = self.context.get('recipe_id')
         recipe = get_object_or_404(Recipe, id=recipe_id)
+        author = self.context.get('author')
         if self.Meta.model.objects.filter(
-            recipe=recipe, author=self.context.get('user')
+            recipe=recipe, author=author
         ).exists():
             raise serializers.ValidationError('The operation is already done')
         attrs['recipe'] = recipe
+        attrs['author'] = author
         return attrs
 
     def to_representation(self, instance):
