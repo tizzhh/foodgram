@@ -8,8 +8,12 @@ User = get_user_model()
 
 
 class Tag(models.Model):
-    name = models.CharField(unique=True, max_length=constants.MAX_NAME_LENGTH)
-    slug = models.SlugField(unique=True, max_length=constants.MAX_NAME_LENGTH)
+    name = models.CharField(
+        unique=True, max_length=constants.MAX_TAG_NAME_LENGTH
+    )
+    slug = models.SlugField(
+        unique=True, max_length=constants.MAX_TAG_SLUG_LENGTH
+    )
 
     class Meta:
         ordering = ('name',)
@@ -21,12 +25,13 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=constants.MAX_NAME_LENGTH)
+    name = models.CharField(max_length=constants.MAX_INGREDIENT_NAME_LENGTH)
     measurement_unit = models.CharField(
         max_length=constants.MAX_MEASUREMENT_LENGTH,
     )
 
     class Meta:
+        ordering = ('name', 'measurement_unit')
         constraints = (
             models.UniqueConstraint(
                 fields=('name', 'measurement_unit'),
@@ -41,7 +46,7 @@ class Ingredient(models.Model):
 
 
 class Recipe(models.Model):
-    name = models.CharField(max_length=constants.MAX_NAME_LENGTH)
+    name = models.CharField(max_length=constants.MAX_RECIPE_NAME_LENGTH)
     text = models.TextField()
     cooking_time = models.PositiveSmallIntegerField(
         validators=(
@@ -65,9 +70,10 @@ class Recipe(models.Model):
     author = models.ForeignKey(
         User, related_name='recipes', on_delete=models.CASCADE
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ('name', 'author__email')
+        ordering = ('created_at',)
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 

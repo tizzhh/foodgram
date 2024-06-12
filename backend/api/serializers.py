@@ -1,9 +1,9 @@
 from django.db.transaction import atomic
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 
-from api.custom_fields import Base64ImageField
-# модель юзера получил в food.models, оттуда везде и импортирую
+from api.fields import Base64ImageField
 from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
                          ShoppingCart, Tag, User)
 from foodgram_user.models import Subscribe
@@ -33,10 +33,14 @@ class UserReadSerializer(serializers.ModelSerializer):
         )
 
     def get_is_subscribed(self, obj):
-        user = self.context.get('user', None)
-        if user is None or not user.is_authenticated:
-            return False
-        return Subscribe.objects.filter(user=user, subscription=obj).exists()
+        request = self.context.get('request', None)
+        return (
+            request is not None
+            and request.user.is_authenticated
+            and Subscribe.objects.filter(
+                user=request.user, subscription=obj
+            ).exists()
+        )
 
 
 class ShoppingCartFavouriteSerializerResponse(serializers.ModelSerializer):
@@ -78,42 +82,37 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscribe
         fields = ('user', 'subscription')
+        validators = (
+            UniqueTogetherValidator(
+                queryset=Subscribe.objects.all(),
+                fields=('user', 'subscription'),
+            ),
+        )
 
     def to_representation(self, instance):
         return SubscriptionReadSerializer(
             instance.subscription, context=self.context
         ).data
 
-    # 500 django.db.utils.IntegrityError без него
     def validate(self, data):
         user = data['user']
         subscription = data['subscription']
         if user == subscription:
             raise serializers.ValidationError("Cannot subscribe to yourself")
-        if Subscribe.objects.filter(
-            user=user, subscription=subscription
-        ).exists():
-            raise serializers.ValidationError(
-                "Already subscribed to this user"
-            )
         return super().validate(data)
 
 
 class BaseFavoriteShoppingCartSeralizer(serializers.ModelSerializer):
     class Meta:
         fields = ('recipe', 'author')
-        read_only_fields = ('recipe', 'author')
 
     def validate(self, attrs):
-        recipe_id = self.context.get('recipe_id')
-        recipe = get_object_or_404(Recipe, id=recipe_id)
-        author = self.context.get('author')
+        recipe = attrs.get('recipe')
+        author = attrs.get('author')
         if self.Meta.model.objects.filter(
             recipe=recipe, author=author
         ).exists():
             raise serializers.ValidationError('The operation is already done')
-        attrs['recipe'] = recipe
-        attrs['author'] = author
         return attrs
 
     def to_representation(self, instance):
@@ -150,18 +149,30 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
         fields = ('id', 'amount')
 
 
+class RecipeIngredientReadSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='ingredient.id')
+    name = serializers.CharField(source='ingredient.name')
+    measurement_unit = serializers.CharField(
+        source='ingredient.measurement_unit'
+    )
+
+    class Meta:
+        model = RecipeIngredient
+        fields = ('id', 'name', 'measurement_unit', 'amount')
+
+
 class RecipeReadSerializer(serializers.ModelSerializer):
-    ingredients = RecipeIngredientSerializer(
+    ingredients = RecipeIngredientReadSerializer(
         source='recipe_ingredients', many=True
     )
-    tags = serializers.PrimaryKeyRelatedField(
-        queryset=Tag.objects.all(), many=True
-    )
+    tags = TagSerializer(many=True)
     author = UserReadSerializer(read_only=True)
     is_favorited = serializers.SerializerMethodField('get_is_favorited')
     is_in_shopping_cart = serializers.SerializerMethodField(
         'get_is_in_shopping_cart'
     )
+    # is_favorited = serializers.BooleanField()
+    # is_in_shopping_cart = serializers.BooleanField()
     image = Base64ImageField()
 
     class Meta:
@@ -198,24 +209,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
                 author=request.user, recipe=obj
             ).exists()
         )
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation['tags'] = TagSerializer(
-            instance.tags.all(), many=True
-        ).data
-        representation['ingredients'] = [
-            {
-                'id': recipe_ingredient.ingredient.id,
-                'name': recipe_ingredient.ingredient.name,
-                'measurement_unit': (
-                    recipe_ingredient.ingredient.measurement_unit
-                ),
-                'amount': recipe_ingredient.amount,
-            }
-            for recipe_ingredient in instance.recipe_ingredients.all()
-        ]
-        return representation
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -297,6 +290,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             instance.tags.set(tags_data)
 
         if ingredients_data is not None:
+            # instance.recipe_ingredients.clear()
             instance.recipe_ingredients.all().delete()
             self.create_recipe_ingredient_data(instance, ingredients_data)
 

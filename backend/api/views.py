@@ -1,5 +1,5 @@
 import pyshorteners
-from django.db.models import Sum
+from django.db.models import Exists, OuterRef, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -10,33 +10,18 @@ from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .filters import IngredientSearch, RecipeFilter
-from .permissions import IsAuthorOrReadOnly
-from .serializers import (FavouriteSeriazlier, IngredientSerializer,
-                          RecipeReadSerializer, RecipeSerializer,
-                          ShoppingCartSerializer, SubscriptionReadSerializer,
-                          SubscriptionSerializer, TagSerializer,
-                          UserAvatarSeriazlier)
+from api.filters import IngredientSearch, RecipeFilter
 from api.pagination import PageNumberWithLimitPagination
-from food.models import Ingredient, Recipe, RecipeIngredient, Tag, User
+from api.permissions import IsAuthorOrReadOnly
+from api.serializers import (FavouriteSeriazlier, IngredientSerializer,
+                             RecipeReadSerializer, RecipeSerializer,
+                             ShoppingCartSerializer,
+                             SubscriptionReadSerializer,
+                             SubscriptionSerializer, TagSerializer,
+                             UserAvatarSeriazlier)
+from food.models import (Favourite, Ingredient, Recipe, RecipeIngredient,
+                         ShoppingCart, Tag, User)
 from foodgram_user.models import Subscribe
-
-
-class BaseFavoriteShoppingCartViewSet(viewsets.ModelViewSet):
-    serializer_class = None
-    permission_classes = (IsAuthorOrReadOnly,)
-    lookup_field = 'recipe_id'
-
-    def create(self, request, *args, **kwargs):
-        recipe_id = self.kwargs.get('recipe_id')
-        serializer = self.get_serializer(
-            data=self.request.data,
-            context={'recipe_id': recipe_id, 'user': self.request.user},
-        )
-        serializer.is_valid(raise_exception=True)
-        recipe = serializer.validated_data['recipe']
-        serializer.save(author=self.request.user, recipe=recipe)
-        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -47,6 +32,29 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     pagination_class = PageNumberWithLimitPagination
+
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     queryset = Recipe.objects.all()
+    #     if user.is_authenticated:
+    #         queryset = queryset.annotate(
+    #             is_favorited=Exists(
+    #                 Favourite.objects.filter(author=user, recipe=OuterRef('pk'))
+    #             ),
+    #             is_in_shopping_cart=Exists(
+    #                 ShoppingCart.objects.filter(author=user, recipe=OuterRef('pk'))
+    #             ),
+    #         )
+    #     else:
+    #         queryset = queryset.annotate(
+    #             is_favorited=Exists(
+    #                 Favourite.objects.none()
+    #             ),
+    #             is_in_shopping_cart=Exists(
+    #                 ShoppingCart.objects.none()
+    #             ),
+    #         )
+    #     return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -61,15 +69,26 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @staticmethod
     def destroy_shopping_cart_favorite(id_to_delete, user):
         recipe_to_delete = get_object_or_404(Recipe, id=id_to_delete)
-        if not (
-            item := user.shoppingcart.filter(recipe=recipe_to_delete)
-        ).exists():
+        deleted, _ = user.shoppingcart.filter(recipe=recipe_to_delete).delete()
+        if not deleted:
             return Response(
-                {'detail': 'recipe is missing from shopping cart'},
+                {'detail': 'recipe is missing'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @staticmethod
+    def add_to_shopping_cart_favorite(serializer, pk, request):
+        get_object_or_404(Recipe, id=pk)
+        serializer = serializer(
+            data={
+                'recipe': pk,
+                'author': request.user.id,
+            },
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=True,
@@ -78,16 +97,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='shopping_cart',
     )
     def add_to_shopping_cart(self, request, pk):
-        serializer = ShoppingCartSerializer(
-            data=request.data,
-            context={
-                'recipe_id': pk,
-                'author': request.user,
-            },
+        return self.add_to_shopping_cart_favorite(
+            ShoppingCartSerializer, pk, request
         )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     @add_to_shopping_cart.mapping.delete
     def delete_from_shopping_cart(self, request, pk):
@@ -100,16 +112,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='favorite',
     )
     def add_to_favorite(self, request, pk):
-        serializer = FavouriteSeriazlier(
-            data=request.data,
-            context={
-                'recipe_id': pk,
-                'author': request.user,
-            },
+        return self.add_to_shopping_cart_favorite(
+            FavouriteSeriazlier, pk, request
         )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     @add_to_favorite.mapping.delete
     def delete_from_favorite(self, request, pk):
@@ -150,6 +155,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 'ingredient__measurement_unit',
             )
             .annotate(total_amount=Sum('amount'))
+            .order_by('ingredient__name')
         )
 
         return self.create_return_cart_file(cart_data)
@@ -191,7 +197,7 @@ class UserViewSet(DjoserUserViewSet):
     )
 
     def get_permissions(self):
-        if '/me' in self.request.get_full_path():
+        if self.action == 'me':
             return (IsAuthenticated(),)
         return super().get_permissions()
 

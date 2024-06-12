@@ -37,9 +37,7 @@ class RecipeFilter(filters.FilterSet):
 
 
 class IngredientSearch(filters.FilterSet):
-    # не совсем понял, зачем тут field_name, если мы ищем
-    # по полю с таким же именем в модели и так.
-    name = filters.CharFilter(lookup_expr='icontains')
+    name = filters.CharFilter(lookup_expr='icontains', field_name='name')
 
     class Meta:
         model = Ingredient
