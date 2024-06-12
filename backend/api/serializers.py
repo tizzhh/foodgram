@@ -1,5 +1,4 @@
 from django.db.transaction import atomic
-from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
@@ -167,12 +166,10 @@ class RecipeReadSerializer(serializers.ModelSerializer):
     )
     tags = TagSerializer(many=True)
     author = UserReadSerializer(read_only=True)
-    is_favorited = serializers.SerializerMethodField('get_is_favorited')
-    is_in_shopping_cart = serializers.SerializerMethodField(
-        'get_is_in_shopping_cart'
+    is_favorited = serializers.BooleanField(read_only=True, default=False)
+    is_in_shopping_cart = serializers.BooleanField(
+        read_only=True, default=False
     )
-    # is_favorited = serializers.BooleanField()
-    # is_in_shopping_cart = serializers.BooleanField()
     image = Base64ImageField()
 
     class Meta:
@@ -188,26 +185,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
             'name',
             'text',
             'cooking_time',
-        )
-
-    def get_is_favorited(self, obj):
-        request = self.context.get('request')
-        return (
-            request
-            and request.user.is_authenticated
-            and Favourite.objects.filter(
-                author=request.user, recipe=obj
-            ).exists()
-        )
-
-    def get_is_in_shopping_cart(self, obj):
-        request = self.context.get('request')
-        return (
-            request
-            and request.user.is_authenticated
-            and ShoppingCart.objects.filter(
-                author=request.user, recipe=obj
-            ).exists()
         )
 
 

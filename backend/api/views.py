@@ -33,28 +33,28 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
     pagination_class = PageNumberWithLimitPagination
 
-    # def get_queryset(self):
-    #     user = self.request.user
-    #     queryset = Recipe.objects.all()
-    #     if user.is_authenticated:
-    #         queryset = queryset.annotate(
-    #             is_favorited=Exists(
-    #                 Favourite.objects.filter(author=user, recipe=OuterRef('pk'))
-    #             ),
-    #             is_in_shopping_cart=Exists(
-    #                 ShoppingCart.objects.filter(author=user, recipe=OuterRef('pk'))
-    #             ),
-    #         )
-    #     else:
-    #         queryset = queryset.annotate(
-    #             is_favorited=Exists(
-    #                 Favourite.objects.none()
-    #             ),
-    #             is_in_shopping_cart=Exists(
-    #                 ShoppingCart.objects.none()
-    #             ),
-    #         )
-    #     return queryset
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Recipe.objects.all()
+        if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_favorited=Exists(
+                    Favourite.objects.filter(
+                        author=user, recipe=OuterRef('pk')
+                    )
+                ),
+                is_in_shopping_cart=Exists(
+                    ShoppingCart.objects.filter(
+                        author=user, recipe=OuterRef('pk')
+                    )
+                ),
+            )
+        else:
+            queryset = queryset.annotate(
+                is_favorited=Exists(Favourite.objects.none()),
+                is_in_shopping_cart=Exists(ShoppingCart.objects.none()),
+            )
+        return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
