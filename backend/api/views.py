@@ -1,5 +1,5 @@
 import pyshorteners
-from django.db.models import Exists, OuterRef, Sum
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -34,27 +34,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     pagination_class = PageNumberWithLimitPagination
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = Recipe.objects.all()
-        if user.is_authenticated:
-            queryset = queryset.annotate(
-                is_favorited=Exists(
-                    Favourite.objects.filter(
-                        author=user, recipe=OuterRef('pk')
-                    )
-                ),
-                is_in_shopping_cart=Exists(
-                    ShoppingCart.objects.filter(
-                        author=user, recipe=OuterRef('pk')
-                    )
-                ),
-            )
-        else:
-            queryset = queryset.annotate(
-                is_favorited=Exists(Favourite.objects.none()),
-                is_in_shopping_cart=Exists(ShoppingCart.objects.none()),
-            )
-        return queryset
+        return Recipe.objects.get_is_favorited_is_in_shopping_cart(
+            self.request.user
+        )
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -67,9 +49,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return RecipeSerializer
 
     @staticmethod
-    def destroy_shopping_cart_favorite(id_to_delete, user):
+    def destroy_shopping_cart_favorite(id_to_delete, user, model):
         recipe_to_delete = get_object_or_404(Recipe, id=id_to_delete)
-        deleted, _ = user.shoppingcart.filter(recipe=recipe_to_delete).delete()
+        deleted, _ = model.objects.filter(
+            author=user, recipe=recipe_to_delete
+        ).delete()
         if not deleted:
             return Response(
                 {'detail': 'recipe is missing'},
@@ -103,7 +87,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @add_to_shopping_cart.mapping.delete
     def delete_from_shopping_cart(self, request, pk):
-        return self.destroy_shopping_cart_favorite(pk, request.user)
+        return self.destroy_shopping_cart_favorite(
+            pk, request.user, ShoppingCart
+        )
 
     @action(
         detail=True,
@@ -118,7 +104,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @add_to_favorite.mapping.delete
     def delete_from_favorite(self, request, pk):
-        return self.destroy_shopping_cart_favorite(pk, request.user)
+        return self.destroy_shopping_cart_favorite(pk, request.user, Favourite)
 
     @staticmethod
     def create_return_cart_file(queryset):
@@ -167,7 +153,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def get_short_link(self, request, pk):
         shortener = pyshorteners.Shortener()
-        short_url = shortener.tinyurl.short(request.get_full_path())
+        short_url = shortener.tinyurl.short(
+            request.build_absolute_uri()
+            .replace('/api', '')
+            .replace('/get-link', '')
+        )
         return Response({'short-link': short_url})
 
 

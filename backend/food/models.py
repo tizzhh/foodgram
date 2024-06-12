@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Exists, OuterRef
+from django.db.models.query import QuerySet
 
 from food import constants
 
@@ -45,6 +47,29 @@ class Ingredient(models.Model):
         return f'{self.name}, {self.measurement_unit}'
 
 
+class RecipeQuerySet(QuerySet):
+    def get_is_favorited_is_in_shopping_cart(self, request_user):
+        if request_user.is_authenticated:
+            self = self.annotate(
+                is_favorited=Exists(
+                    Favourite.objects.filter(
+                        author=request_user, recipe=OuterRef('pk')
+                    )
+                ),
+                is_in_shopping_cart=Exists(
+                    ShoppingCart.objects.filter(
+                        author=request_user, recipe=OuterRef('pk')
+                    )
+                ),
+            )
+        else:
+            self = self.annotate(
+                is_favorited=Exists(Favourite.objects.none()),
+                is_in_shopping_cart=Exists(ShoppingCart.objects.none()),
+            )
+        return self
+
+
 class Recipe(models.Model):
     name = models.CharField(max_length=constants.MAX_RECIPE_NAME_LENGTH)
     text = models.TextField()
@@ -71,6 +96,7 @@ class Recipe(models.Model):
         User, related_name='recipes', on_delete=models.CASCADE
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    objects = RecipeQuerySet.as_manager()
 
     class Meta:
         ordering = ('created_at',)

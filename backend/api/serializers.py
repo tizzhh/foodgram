@@ -32,7 +32,7 @@ class UserReadSerializer(serializers.ModelSerializer):
         )
 
     def get_is_subscribed(self, obj):
-        request = self.context.get('request', None)
+        request = self.context.get('request')
         return (
             request is not None
             and request.user.is_authenticated
@@ -149,9 +149,9 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientReadSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(source='ingredient.id')
-    name = serializers.CharField(source='ingredient.name')
-    measurement_unit = serializers.CharField(
+    id = serializers.ReadOnlyField(source='ingredient.id')
+    name = serializers.ReadOnlyField(source='ingredient.name')
+    measurement_unit = serializers.ReadOnlyField(
         source='ingredient.measurement_unit'
     )
 
@@ -240,7 +240,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             RecipeIngredient(
                 recipe=recipe,
                 ingredient=ingredient_data['id'],
-                amount=ingredient_data.get('amount', None),
+                amount=ingredient_data.get('amount'),
             )
             for ingredient_data in ingredients_data
         )
